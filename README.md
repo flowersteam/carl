@@ -1,5 +1,5 @@
 # CARL — Companion website
 
-Companion site for *Closing the Loop: Autotelic RL for Exploring and Controlling Self-Organizing Phenomena* (ALife 2026).
+Companion site for The Artificial Experimentalist: Autotelic RL for Discovery and Control of Self-Organizing Phenomena (ALife 2026).
 
 Live at: https://markocvjetko.github.io/carl/
