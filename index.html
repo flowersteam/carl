@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Closing the Loop — CARL</title> 
+<title>he Artificial Experimentalist — CARL</title> 
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Companion website for 'Closing the Loop: Autotelic RL for Exploring and Controlling Self-Organizing Phenomena' (ALife 2026).">
+<meta name="description" content="Companion website for 'The Artificial Experimentalist: Autotelic RL for Discovery and Control of Self-Organizing Phenomena' (ALife 2026).">
 <style>
   :root { --fg:#222; --muted:#666; --accent:#2b5cad; --bg:#fdfdfd; }
   html,body { background:var(--bg); color:var(--fg); }
@@ -24,7 +24,7 @@
 </head>
 <body>
 
-<h1>Closing the Loop: Autotelic RL for Exploring and Controlling Self-Organizing Phenomena</h1>
+<h1>The Artificial Experimentalist: Autotelic RL for Discovery and Control of Self-Organizing Phenomena</h1>
 
 <p class="authors">
   Marko Cvjetko<sup>1</sup>,
@@ -43,13 +43,17 @@
 
 <h2>Abstract</h2>
 <p>
-We introduce a closed-loop framework based on autotelic reinforcement learning in which an
-agent autonomously samples diverse goals and learns a goal-conditioned policy to intervene in
-a complex system through minimal, local perturbations. We instantiate this framework on Lenia,
-a continuous cellular automaton, in a system called <strong>CARL</strong>. CARL discovers stable
-solitons across a wide range of Lenia update rules, learns to steer the movement direction of
-existing solitons, and can be used as a real-time interface for humans to guide solitons through
-maze environments.
+Existing methods for exploring cellular automata and other complex systems mostly operate in open loop: they set initial conditions,
+  execute a full simulation, and observe the outcome, without intervening during execution. We introduce a closed-loop framework based
+  on autotelic reinforcement learning, in which an agent autonomously samples diverse goals and learns a goal-conditioned policy to
+  intervene in a complex system through minimal, local perturbations. We instantiate this framework on Lenia, a continuous cellular
+  automaton known for life-like self-organizing patterns, in an agentic system we call CARL, and demonstrate three capabilities. First, CARL
+  discovers stable solitons across a wide range of Lenia update rules at a higher rate than heuristic baselines. Second, it learns to steer
+  the movement direction of existing solitons with few interventions, showing that CARL can control self-organizing patterns, not only
+  create them. Third, humans can use trained agents to guide solitons through maze environments in real time by specifying high-level 
+  directional commands that the agent translates into low-level interventions. Trained across diverse goals, update rules, and random 
+  initial states, the agents acquire policies that generalize zero-shot to various out-of-distribution conditions. These results suggest 
+  a path toward artificial experimentalist agents that, autonomously or with human guidance, discover and control emergent phenomena in complex systems.
 </p>
 
 <h2>Videos &amp; blog post</h2>
