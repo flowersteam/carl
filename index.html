@@ -19,6 +19,12 @@
   .placeholder { background: #f4f6fa; border-left: 3px solid var(--accent);
                  padding: 0.8rem 1rem; border-radius: 4px; color: #444; }
   a { color: var(--accent); }
+  figure { margin: 1rem 0; }
+  figure video, figure img { display: block; width: 100%; border-radius: 4px; background: #000; }
+  .section-ref { color: var(--muted); font-size: 0.9rem; margin: 0 0 0.6rem; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin: 1rem 0; }
+  .grid-2 figure { margin: 0; }
+  @media (max-width: 600px) { .grid-2 { grid-template-columns: 1fr; } }
   footer { margin-top: 3rem; color: var(--muted); font-size: 0.85rem; }
 </style>
 </head>
@@ -39,7 +45,7 @@
   <sup>3</sup>Wyss Institute, Harvard University &middot;
   <sup>4</sup>Inria, INSA Lyon, CITI
 </p>
-<p class="venue">Submitted to ALife 2026</p>
+<p class="venue">Submitted to ALife 2026 &middot; <a href="carl_paper.pdf">Paper (PDF)</a></p>
 
 <h2>Abstract</h2>
 <p>
@@ -56,10 +62,73 @@ Existing methods for exploring cellular automata and other complex systems mostl
   a path toward artificial experimentalist agents that, autonomously or with human guidance, discover and control emergent phenomena in complex systems.
 </p>
 
-<h2>Videos &amp; blog post</h2>
-<div class="placeholder">
-  Video examples and an accompanying blog post will be posted here shortly. Check back soon.
+<h2 id="setup">Training update rules</h2>
+<p class="section-ref">Method &mdash; <em>Instantiation: Lenia</em>.</p>
+<figure>
+  <img src="assets/figures/lenia_params_diverse_mu_sigma.png" alt="The 85 Lenia update rules used during training, in (sigma, mu) space, partitioned by beta family.">
+</figure>
+
+<h2 id="creation">Soliton creation</h2>
+<p class="section-ref">Sec.&nbsp;<em>Soliton Creation Task</em>, Fig.&nbsp;3&ndash;4.</p>
+<figure>
+  <video autoplay muted playsinline loop preload="metadata" controls>
+    <source src="assets/videos/dqn_selforg_grid_6x6_episode.mp4" type="video/mp4">
+  </video>
+</figure>
+<figure>
+  <video autoplay muted playsinline loop preload="metadata" controls>
+    <source src="assets/videos/dqn_selforg_grid_6x6_selforg.mp4" type="video/mp4">
+  </video>
+</figure>
+
+<h2 id="generalization">Unseen kernel radii</h2>
+<p class="section-ref">Sec.&nbsp;<em>Rescaled kernel radius</em>, Fig.&nbsp;5 right.</p>
+<figure>
+  <video autoplay muted playsinline loop preload="metadata" controls>
+    <source src="assets/videos/unseen_radii_R6_grid_episode_4x4.mp4" type="video/mp4">
+  </video>
+</figure>
+<figure>
+  <video autoplay muted playsinline loop preload="metadata" controls>
+    <source src="assets/videos/unseen_radii_R16_grid_episode_4x4.mp4" type="video/mp4">
+  </video>
+</figure>
+<figure>
+  <video autoplay muted playsinline loop preload="metadata" controls>
+    <source src="assets/videos/unseen_radii_R24_grid_episode_4x4.mp4" type="video/mp4">
+  </video>
+</figure>
+
+<h2 id="novel-rules">Novel update rules</h2>
+<p class="section-ref">Sec.&nbsp;<em>Novel update rules</em>, Fig.&nbsp;6.</p>
+<figure>
+  <video autoplay muted playsinline loop preload="metadata" controls>
+    <source src="assets/videos/novel_rules_solitons_3x7_seed3.mp4" type="video/mp4">
+  </video>
+</figure>
+
+<h2 id="steering">Soliton steering</h2>
+<p class="section-ref">Sec.&nbsp;<em>Soliton Direction Task</em>, Fig.&nbsp;7.</p>
+<div class="grid-2">
+  <figure>
+    <video autoplay muted playsinline loop preload="metadata" controls>
+      <source src="assets/videos/direction_1.mp4" type="video/mp4">
+    </video>
+  </figure>
+  <figure>
+    <video autoplay muted playsinline loop preload="metadata" controls>
+      <source src="assets/videos/direction_2.mp4" type="video/mp4">
+    </video>
+  </figure>
 </div>
+
+<h2 id="human-in-the-loop">Human in the loop</h2>
+<p class="section-ref">Sec.&nbsp;<em>Human-in-the-Loop</em>, Fig.&nbsp;8.</p>
+<figure>
+  <video autoplay muted playsinline loop preload="metadata" controls>
+    <source src="assets/videos/maze.mp4" type="video/mp4">
+  </video>
+</figure>
 
 <h2>Code</h2>
 <div class="placeholder">
