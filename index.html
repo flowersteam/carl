@@ -2,74 +2,298 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>The Artificial Experimentalist — CARL</title>
+<title>CARL — The Artificial Experimentalist</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Companion website for 'The Artificial Experimentalist: An Autotelic RL Agent that Learns to Guide Self-Organized Phenomena in Artificial Life' (ALife 2026).">
+<meta name="description" content="Companion website for 'The Artificial Experimentalist: Discovery and Control of Self-Organizing Phenomena with Autotelic Reinforcement Learning' (ALife 2026).">
+
 <style>
-  :root { --fg:#222; --muted:#666; --accent:#2b5cad; --bg:#fdfdfd; }
-  html,body { background:var(--bg); color:var(--fg); }
-  body { max-width: 760px; margin: 3rem auto; padding: 0 1.2rem;
-         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-         line-height: 1.6; }
-  h1 { font-size: 1.7rem; line-height: 1.3; margin-bottom: 0.3rem; }
-  h2 { font-size: 1.15rem; margin-top: 2.2rem; border-bottom: 1px solid #eee; padding-bottom: 0.2rem; }
-  .authors { color: var(--muted); margin-top: 0; }
-  .affil { color: var(--muted); font-size: 0.9rem; }
-  .venue { color: var(--muted); font-style: italic; }
-  .placeholder { background: #f4f6fa; border-left: 3px solid var(--accent);
-                 padding: 0.8rem 1rem; border-radius: 4px; color: #444; }
-  a { color: var(--accent); }
-  footer { margin-top: 3rem; color: var(--muted); font-size: 0.85rem; }
+  :root {
+    --fg: #1a1a1a;
+    --muted: #6a6a6a;
+    --faint: #9a9a9a;
+    --accent: #2b5cad;
+    --bg: #ffffff;
+    --rule: #eaeaea;
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); color: var(--fg); margin: 0; padding: 0; }
+  body {
+    font-family: "Charter", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    font-size: 18px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  article {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 3rem 1.25rem 4rem;
+  }
+  header.post-header { margin-bottom: 2rem; }
+  h1 {
+    font-size: 2rem;
+    line-height: 1.2;
+    font-weight: 700;
+    margin: 0 0 0.75rem;
+    letter-spacing: -0.01em;
+  }
+  h2 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    margin: 2.8rem 0 0.8rem;
+    letter-spacing: -0.005em;
+  }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid rgba(43, 92, 173, 0.25); }
+  a:hover { border-bottom-color: var(--accent); }
+  time { color: var(--muted); font-size: 0.92rem; }
+  .authors {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    margin: 0.2rem 0 0.3rem;
+    font-size: 0.98rem;
+  }
+  .affil {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    color: var(--muted);
+    font-size: 0.88rem;
+    margin: 0 0 0.8rem;
+  }
+  .venue {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    color: var(--muted);
+    font-style: italic;
+    font-size: 0.9rem;
+    margin: 0 0 0.8rem;
+  }
+  .links {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    font-size: 0.92rem;
+    display: flex;
+    gap: 0.9rem;
+    flex-wrap: wrap;
+    padding: 0.6rem 0;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+  figure { margin: 1.6rem 0; }
+  figure video, figure img {
+    display: block;
+    margin: 0 auto;
+    width: 100%;
+    border-radius: 4px;
+    background: #000;
+  }
+  figure.narrow video, figure.narrow img { width: 80%; }
+
+  video[data-placeholder] {
+    background:
+      repeating-linear-gradient(45deg, #1a1a1a, #1a1a1a 12px, #222 12px, #222 24px);
+    aspect-ratio: 16 / 9;
+  }
+  .ph-wrap { position: relative; }
+  .ph-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ddd;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    font-size: 0.85rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    pointer-events: none;
+    background: rgba(0,0,0,0.35);
+    border-radius: 4px;
+  }
+  .ph-label code {
+    background: rgba(255,255,255,0.12);
+    padding: 2px 8px;
+    border-radius: 3px;
+    margin-left: 0.5rem;
+    font-size: 0.8rem;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .ph-wrap.square video[data-placeholder] { aspect-ratio: 1 / 1; }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+    margin: 1.6rem 0 0.6rem;
+  }
+  .grid-2 .ph-wrap { margin: 0; }
+
+  footer {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    max-width: 760px;
+    margin: 2rem auto 3rem;
+    padding: 1.5rem 1.25rem 0;
+    border-top: 1px solid var(--rule);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  @media (max-width: 600px) {
+    body { font-size: 17px; }
+    article { padding: 2rem 1rem 3rem; }
+    h1 { font-size: 1.55rem; }
+    h2 { font-size: 1.2rem; }
+    .grid-2 { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
 
-<h1>The Artificial Experimentalist: An Autotelic RL Agent that Learns to Guide Self-Organized Phenomena in Artificial Life</h1>
+<article>
 
-<p class="authors">
-  Marko Cvjetko<sup>1</sup>,
-  Benedikt Hartl<sup>2</sup>,
-  Michael Levin<sup>2,3</sup>,
-  Cl&eacute;ment Moulin-Frier<sup>4</sup>,
-  Pierre-Yves Oudeyer<sup>1</sup>
-</p>
-<p class="affil">
-  <sup>1</sup>Inria Centre at the University of Bordeaux &middot;
-  <sup>2</sup>Allen Discovery Center, Tufts University &middot;
-  <sup>3</sup>Wyss Institute, Harvard University &middot;
-  <sup>4</sup>Inria, INSA Lyon, CITI
-</p>
-<p class="venue">Submitted to ALife 2026</p>
+<header class="post-header">
+  <h1>The Artificial Experimentalist: Discovery and Control of Self-Organizing Phenomena with Autotelic Reinforcement Learning</h1>
+  <time datetime="2026-04-21">Preprint &middot; April 2026</time>
 
-<h2>Abstract</h2>
-<p>
-We introduce a closed-loop framework based on autotelic reinforcement learning in which an
-agent autonomously samples diverse goals and learns a goal-conditioned policy to intervene in
-a complex system through minimal, local perturbations. We instantiate this framework on Lenia,
-a continuous cellular automaton, in a system called <strong>CARL</strong>. CARL discovers stable
-solitons across a wide range of Lenia update rules, learns to steer the movement direction of
-existing solitons, and can be used as a real-time interface for humans to guide solitons through
-maze environments.
+  <p class="authors">
+    Marko Cvjetko<sup>1</sup>,
+    Benedikt Hartl<sup>2</sup>,
+    Michael Levin<sup>2,3</sup>,
+    Cl&eacute;ment Moulin-Frier<sup>4</sup>,
+    Pierre-Yves Oudeyer<sup>1</sup>
+  </p>
+  <p class="affil">
+    <sup>1</sup>Inria Centre at the University of Bordeaux &middot;
+    <sup>2</sup>Allen Discovery Center, Tufts University &middot;
+    <sup>3</sup>Wyss Institute, Harvard University &middot;
+    <sup>4</sup>Inria, INSA Lyon, CITI
+  </p>
+  <p class="venue">Submitted to ALife 2026</p>
+
+  <nav class="links">
+    <a href="carl_paper.pdf">Paper (PDF)</a>
+    <a href="#" aria-disabled="true" style="color: var(--faint); border-bottom-color: transparent;">arXiv (soon)</a>
+    <a href="#" aria-disabled="true" style="color: var(--faint); border-bottom-color: transparent;">Code (on release)</a>
+    <a href="mailto:marko.cvjetko@inria.fr">Contact</a>
+  </nav>
+</header>
+
+<p style="color: var(--muted); font-size: 0.95rem; margin: 0.5rem 0 1.5rem;">
+  Video supplement to the manuscript. Each clip is anchored to a specific
+  section &mdash; refer to the <a href="carl_paper.pdf">PDF</a> for full
+  context.
 </p>
 
-<h2>Videos &amp; blog post</h2>
-<div class="placeholder">
-  Video examples and an accompanying blog post will be posted here shortly. Check back soon.
+<h2 id="setup">Setup &mdash; training update rules</h2>
+
+<figure>
+  <img src="assets/figures/lenia_params_diverse_mu_sigma.png" alt="Scatter of the 85 Lenia update rules used during training, in (sigma, mu) space, partitioned by beta family.">
+  <figcaption style="font-size: 0.9rem; color: var(--muted); margin-top: 0.5rem;">
+    The 85 Lenia update rules used during training (Method &mdash; <em>Instantiation: Lenia</em>).
+    Each point is one rule; markers denote the kernel ring profile <em>&beta;</em>.
+    A single goal-conditioned policy is trained across this set.
+  </figcaption>
+</figure>
+
+<h2 id="creation">Soliton creation (mass tracking task)</h2>
+
+<p style="font-size: 0.95rem;">
+  Agent behavior on the mass tracking task (Sec.&nbsp;<em>Soliton Creation Task</em>).
+  A 6&times;6 grid of episodes spanning different update rules and target masses.
+</p>
+
+<figure>
+  <video autoplay muted playsinline loop preload="metadata" controls>
+    <source src="assets/videos/dqn_selforg_grid_6x6_episode.mp4" type="video/mp4">
+  </video>
+  <figcaption style="font-size: 0.9rem; color: var(--muted); margin-top: 0.5rem;">
+    During the episode: the agent intervenes (add / remove / no-op) to track its sampled target mass.
+  </figcaption>
+</figure>
+
+<figure>
+  <video autoplay muted playsinline loop preload="metadata" controls>
+    <source src="assets/videos/dqn_selforg_grid_6x6_selforg.mp4" type="video/mp4">
+  </video>
+  <figcaption style="font-size: 0.9rem; color: var(--muted); margin-top: 0.5rem;">
+    After the episode: the final state is rolled out for 5000 Lenia steps with no intervention.
+    Self-sustaining solitons emerge as a side effect of mass tracking under action cost
+    (Sec.&nbsp;<em>Soliton creation</em>, Fig.&nbsp;3&ndash;4).
+  </figcaption>
+</figure>
+
+<h2 id="generalization">Generalization &mdash; unseen kernel radii</h2>
+
+<p style="font-size: 0.95rem;">
+  Zero-shot deployment on rescaled kernel radii <em>&rho;</em>, with action radius and grid size
+  scaled accordingly (Sec.&nbsp;<em>Rescaled kernel radius</em>, Fig.&nbsp;5 right).
+  The policy is fully convolutional and was trained on <em>&rho; = 13</em>.
+</p>
+
+<figure>
+  <video autoplay muted playsinline loop preload="metadata" controls>
+    <source src="assets/videos/unseen_radii_R6_grid_episode_4x4.mp4" type="video/mp4">
+  </video>
+  <figcaption style="font-size: 0.9rem; color: var(--muted); margin-top: 0.5rem;">
+    <em>&rho; = 6</em> &mdash; down-scaled.
+  </figcaption>
+</figure>
+
+<figure>
+  <video autoplay muted playsinline loop preload="metadata" controls>
+    <source src="assets/videos/unseen_radii_R16_grid_episode_4x4.mp4" type="video/mp4">
+  </video>
+  <figcaption style="font-size: 0.9rem; color: var(--muted); margin-top: 0.5rem;">
+    <em>&rho; = 16</em> &mdash; up-scaled.
+  </figcaption>
+</figure>
+
+<figure>
+  <video autoplay muted playsinline loop preload="metadata" controls>
+    <source src="assets/videos/unseen_radii_R24_grid_episode_4x4.mp4" type="video/mp4">
+  </video>
+  <figcaption style="font-size: 0.9rem; color: var(--muted); margin-top: 0.5rem;">
+    <em>&rho; = 24</em> &mdash; further up-scaled.
+  </figcaption>
+</figure>
+
+<h2 id="steering">Soliton steering</h2>
+
+<p style="font-size: 0.95rem;">
+  A separate agent trained to steer an existing soliton along a sampled target direction
+  (Sec.&nbsp;<em>Soliton Direction Task</em>, Fig.&nbsp;7).
+</p>
+
+<div class="grid-2">
+  <figure style="margin: 0;">
+    <video autoplay muted playsinline loop preload="metadata" controls>
+      <source src="assets/videos/direction_1.mp4" type="video/mp4">
+    </video>
+  </figure>
+  <figure style="margin: 0;">
+    <video autoplay muted playsinline loop preload="metadata" controls>
+      <source src="assets/videos/direction_2.mp4" type="video/mp4">
+    </video>
+  </figure>
 </div>
 
-<h2>Code</h2>
-<div class="placeholder">
-  Code will be released upon publication.
-</div>
+<h2 id="human-in-the-loop">Human in the loop &mdash; maze</h2>
 
-<h2>Contact</h2>
-<p>
-  Corresponding author:
-  <a href="mailto:marko.cvjetko@inria.fr">marko.cvjetko@inria.fr</a>
-</p>
+<figure>
+  <video autoplay muted playsinline loop preload="metadata" controls>
+    <source src="assets/videos/maze.mp4" type="video/mp4">
+  </video>
+  <figcaption style="font-size: 0.9rem; color: var(--muted); margin-top: 0.5rem;">
+    A human steers a soliton through a procedurally generated maze in real time by modifying
+    the steering agent's target direction (Sec.&nbsp;<em>Human-in-the-Loop</em>, Fig.&nbsp;8).
+    The agent translates the high-level command into low-level Lenia interventions; the soliton
+    preserves its shape across redirections.
+  </figcaption>
+</figure>
+
+</article>
 
 <footer>
-  &copy; 2026 The authors. Released under CC BY 4.0.
+  <p>
+    Corresponding author: <a href="mailto:marko.cvjetko@inria.fr">marko.cvjetko@inria.fr</a>
+    &middot; &copy; 2026 The authors. Released under CC BY 4.0.
+  </p>
 </footer>
 
 </body>
