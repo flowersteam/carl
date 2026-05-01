@@ -174,91 +174,60 @@
   </nav>
 </header>
 
-<p style="color: var(--muted); font-size: 0.95rem; margin: 0.5rem 0 1.5rem;">
-  Video supplement to the manuscript. Each clip is anchored to a specific
-  section &mdash; refer to the <a href="carl_paper.pdf">PDF</a> for full
-  context.
-</p>
-
-<h2 id="setup">Setup &mdash; training update rules</h2>
+<h2 id="setup">Training update rules</h2>
+<p style="font-size: 0.9rem; color: var(--muted); margin: 0;">Method &mdash; <em>Instantiation: Lenia</em>.</p>
 
 <figure>
   <img src="assets/figures/lenia_params_diverse_mu_sigma.png" alt="Scatter of the 85 Lenia update rules used during training, in (sigma, mu) space, partitioned by beta family.">
-  <figcaption style="font-size: 0.9rem; color: var(--muted); margin-top: 0.5rem;">
-    The 85 Lenia update rules used during training (Method &mdash; <em>Instantiation: Lenia</em>).
-    Each point is one rule; markers denote the kernel ring profile <em>&beta;</em>.
-    A single goal-conditioned policy is trained across this set.
-  </figcaption>
 </figure>
 
-<h2 id="creation">Soliton creation (mass tracking task)</h2>
-
-<p style="font-size: 0.95rem;">
-  Agent behavior on the mass tracking task (Sec.&nbsp;<em>Soliton Creation Task</em>).
-  A 6&times;6 grid of episodes spanning different update rules and target masses.
-</p>
+<h2 id="creation">Soliton creation</h2>
+<p style="font-size: 0.9rem; color: var(--muted); margin: 0;">Sec.&nbsp;<em>Soliton Creation Task</em>, Fig.&nbsp;3&ndash;4.</p>
 
 <figure>
   <video autoplay muted playsinline loop preload="metadata" controls>
     <source src="assets/videos/dqn_selforg_grid_6x6_episode.mp4" type="video/mp4">
   </video>
-  <figcaption style="font-size: 0.9rem; color: var(--muted); margin-top: 0.5rem;">
-    During the episode: the agent intervenes (add / remove / no-op) to track its sampled target mass.
-  </figcaption>
 </figure>
 
 <figure>
   <video autoplay muted playsinline loop preload="metadata" controls>
     <source src="assets/videos/dqn_selforg_grid_6x6_selforg.mp4" type="video/mp4">
   </video>
-  <figcaption style="font-size: 0.9rem; color: var(--muted); margin-top: 0.5rem;">
-    After the episode: the final state is rolled out for 5000 Lenia steps with no intervention.
-    Self-sustaining solitons emerge as a side effect of mass tracking under action cost
-    (Sec.&nbsp;<em>Soliton creation</em>, Fig.&nbsp;3&ndash;4).
-  </figcaption>
 </figure>
 
-<h2 id="generalization">Generalization &mdash; unseen kernel radii</h2>
-
-<p style="font-size: 0.95rem;">
-  Zero-shot deployment on rescaled kernel radii <em>&rho;</em>, with action radius and grid size
-  scaled accordingly (Sec.&nbsp;<em>Rescaled kernel radius</em>, Fig.&nbsp;5 right).
-  The policy is fully convolutional and was trained on <em>&rho; = 13</em>.
-</p>
+<h2 id="generalization">Unseen kernel radii</h2>
+<p style="font-size: 0.9rem; color: var(--muted); margin: 0;">Sec.&nbsp;<em>Rescaled kernel radius</em>, Fig.&nbsp;5 right.</p>
 
 <figure>
   <video autoplay muted playsinline loop preload="metadata" controls>
     <source src="assets/videos/unseen_radii_R6_grid_episode_4x4.mp4" type="video/mp4">
   </video>
-  <figcaption style="font-size: 0.9rem; color: var(--muted); margin-top: 0.5rem;">
-    <em>&rho; = 6</em> &mdash; down-scaled.
-  </figcaption>
 </figure>
 
 <figure>
   <video autoplay muted playsinline loop preload="metadata" controls>
     <source src="assets/videos/unseen_radii_R16_grid_episode_4x4.mp4" type="video/mp4">
   </video>
-  <figcaption style="font-size: 0.9rem; color: var(--muted); margin-top: 0.5rem;">
-    <em>&rho; = 16</em> &mdash; up-scaled.
-  </figcaption>
 </figure>
 
 <figure>
   <video autoplay muted playsinline loop preload="metadata" controls>
     <source src="assets/videos/unseen_radii_R24_grid_episode_4x4.mp4" type="video/mp4">
   </video>
-  <figcaption style="font-size: 0.9rem; color: var(--muted); margin-top: 0.5rem;">
-    <em>&rho; = 24</em> &mdash; further up-scaled.
-  </figcaption>
+</figure>
+
+<h2 id="novel-rules">Novel update rules</h2>
+<p style="font-size: 0.9rem; color: var(--muted); margin: 0;">Sec.&nbsp;<em>Novel update rules</em>, Fig.&nbsp;6.</p>
+
+<figure>
+  <video autoplay muted playsinline loop preload="metadata" controls>
+    <source src="assets/videos/novel_rules_solitons_3x7_seed3.mp4" type="video/mp4">
+  </video>
 </figure>
 
 <h2 id="steering">Soliton steering</h2>
-
-<p style="font-size: 0.95rem;">
-  A separate agent trained to steer an existing soliton along a sampled target direction
-  (Sec.&nbsp;<em>Soliton Direction Task</em>, Fig.&nbsp;7).
-</p>
+<p style="font-size: 0.9rem; color: var(--muted); margin: 0;">Sec.&nbsp;<em>Soliton Direction Task</em>, Fig.&nbsp;7.</p>
 
 <div class="grid-2">
   <figure style="margin: 0;">
@@ -273,18 +242,13 @@
   </figure>
 </div>
 
-<h2 id="human-in-the-loop">Human in the loop &mdash; maze</h2>
+<h2 id="human-in-the-loop">Human in the loop</h2>
+<p style="font-size: 0.9rem; color: var(--muted); margin: 0;">Sec.&nbsp;<em>Human-in-the-Loop</em>, Fig.&nbsp;8.</p>
 
 <figure>
   <video autoplay muted playsinline loop preload="metadata" controls>
     <source src="assets/videos/maze.mp4" type="video/mp4">
   </video>
-  <figcaption style="font-size: 0.9rem; color: var(--muted); margin-top: 0.5rem;">
-    A human steers a soliton through a procedurally generated maze in real time by modifying
-    the steering agent's target direction (Sec.&nbsp;<em>Human-in-the-Loop</em>, Fig.&nbsp;8).
-    The agent translates the high-level command into low-level Lenia interventions; the soliton
-    preserves its shape across redirections.
-  </figcaption>
 </figure>
 
 </article>
