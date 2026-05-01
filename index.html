@@ -21,7 +21,7 @@
   a { color: var(--accent); }
   figure { margin: 1rem 0; }
   figure video, figure img { display: block; width: 100%; border-radius: 4px; background: #000; }
-  .section-ref { color: var(--muted); font-size: 0.9rem; margin: 0 0 0.6rem; }
+  .section-ref { color: var(--muted); font-size: 1.02rem; line-height: 1.5; margin: 0 0 0.7rem; }
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin: 1rem 0; }
   .grid-2 figure { margin: 0; }
   @media (max-width: 600px) { .grid-2 { grid-template-columns: 1fr; } }
@@ -74,11 +74,13 @@ Existing methods for exploring cellular automata and other complex systems mostl
   <video autoplay muted playsinline loop preload="metadata" controls>
     <source src="assets/videos/dqn_selforg_grid_6x6_episode.mp4" type="video/mp4">
   </video>
+  <figcaption class="section-ref">During the episode &mdash; the agent intervenes (add / remove / no-op) to track its sampled target mass.</figcaption>
 </figure>
 <figure>
   <video autoplay muted playsinline loop preload="metadata" controls>
     <source src="assets/videos/dqn_selforg_grid_6x6_selforg.mp4" type="video/mp4">
   </video>
+  <figcaption class="section-ref">After the episode &mdash; the final state is rolled out with no intervention; self-sustaining solitons emerge.</figcaption>
 </figure>
 
 <h2 id="generalization">Unseen kernel radii</h2>
