@@ -1,0 +1,61 @@
+{
+ "task": "mass",
+ "run": "fresh-parody (canonical mass run, Figs 2-6)",
+ "checkpoint": "model_step_1800000.pth",
+ "board_size": [
+  64,
+  64
+ ],
+ "kernel_R": 10.0,
+ "dt": 0.1,
+ "frame_stack": 4,
+ "input_channels": 4,
+ "output_channels": 3,
+ "conditioning_dim": 12,
+ "action_value": [
+  0.3,
+  -0.3,
+  0.0
+ ],
+ "action_radius": 5,
+ "max_steps": 150,
+ "no_time": false,
+ "reward_target_range": [
+  [
+   0,
+   200
+  ]
+ ],
+ "reward_target_min": 0.0,
+ "reward_target_max": 200.0,
+ "action_cost_range": [
+  0.0,
+  0.2
+ ],
+ "default_action_cost": 0.1,
+ "default_preset": {
+  "mu": 0.15,
+  "sigma": 0.015,
+  "betas": [
+   1.0,
+   0.75,
+   0.25,
+   0.75
+  ]
+ },
+ "default_target_mass": 120.0,
+ "context_layout": [
+  "time (step/max_steps, or 0 if no_time)",
+  "reward_target normalized to [min,max]",
+  "action_cost normalized to range",
+  "dt (raw)",
+  "R (raw)",
+  "mu (raw)",
+  "sigma (raw)",
+  "beta0",
+  "beta1",
+  "beta2",
+  "beta3",
+  "n_beta (raw count)"
+ ]
+}

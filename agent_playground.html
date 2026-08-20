@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Injects COOP/COEP response headers via a service worker so the page becomes cross-origin
+     isolated — required for real SharedArrayBuffer support, which onnxruntime-web's threaded/
+     WebGPU (JSEP) backend needs for fast GPU<->CPU coordination. Neither a plain static file
+     server nor GitHub Pages can set those headers directly, hence the client-side workaround.
+     First-ever visit triggers one extra reload while the service worker activates. -->
+<script src="coi-serviceworker.js"></script>
+<script>try{if(localStorage.getItem('carl-theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>CARL Demo</title>
+<meta name="description" content="Run the trained CARL mass-control agent live in your browser. The neural network executes on your own hardware via ONNX Runtime Web. Hand it a target mass and watch it nudge a self-organizing Lenia into solitons — or take the controls yourself.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- ONNX Runtime Web: the trained net runs client-side (WASM / WebGPU) on the user's hardware -->
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.webgpu.min.js"></script>
+<style>
+  :root{
+    --bg:#f6f3f7;--raised:#ffffff;--screen:#161019;--line:#e6dfe9;--line2:#d9cee0;
+    --ink:#241a2c;--muted:#6a5c76;--faint:#8f8298;--m4:#b85527;--accent:#c96a34;--accent2:#c02955;
+    --good:#1f8f52;--ramp:linear-gradient(90deg,#3b0f70,#8c2981,#de4968,#fe9f6d,#fcfdbf);
+    --glowA:rgba(222,73,104,.07);--glowB:rgba(59,15,112,.06);--shadow:0 20px 60px -30px rgba(60,20,40,.18);
+  }
+  :root[data-theme="dark"]{
+    --bg:#0b0710;--raised:#150c20;--screen:#070409;--line:#2a1d3a;--line2:#3b2a4d;
+    --ink:#ece6f3;--muted:#a195b4;--faint:#6c5f80;--m4:#fe9f6d;--accent:#fca96b;--accent2:#de4968;
+    --good:#53b979;--ramp:linear-gradient(90deg,#3b0f70,#8c2981,#de4968,#fe9f6d,#fcfdbf);
+    --glowA:rgba(222,73,104,.10);--glowB:rgba(59,15,112,.28);--shadow:0 30px 90px -40px rgba(222,73,104,.4);
+  }
+  *{box-sizing:border-box}
+  /* Reserve the scrollbar gutter so a transiently-appearing scrollbar never changes the
+     content width — otherwise the (width-bound) canvas resizes and snaps back each frame. */
+  html{scrollbar-gutter:stable;background:var(--bg)}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Inter",system-ui,sans-serif;
+       -webkit-font-smoothing:antialiased;line-height:1.5}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(60% 50% at 82% 4%,var(--glowA),transparent 60%),
+               radial-gradient(55% 45% at 6% 96%,var(--glowB),transparent 60%)}
+  .wrap{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:18px 22px 16px}
+  .eyebrow{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.2em;
+           text-transform:uppercase;color:var(--faint)}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .theme-toggle{width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;
+    font-size:14px;line-height:1;color:var(--muted);flex:0 0 auto}
+  h1{font-family:"Fraunces",serif;font-weight:600;font-size:clamp(22px,3vw,30px);margin:4px 0 0;letter-spacing:-.01em}
+  h1 em{font-style:italic;font-weight:500;color:var(--m4)}
+  .sub{color:var(--muted);max-width:92ch;margin:7px 0 15px;font-size:14px;line-height:1.5}
+  a{color:var(--accent)}
+
+  .stage{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,520px);gap:18px;align-items:start}
+  @media(max-width:860px){.stage{grid-template-columns:1fr}}
+  .controls{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-content:start}
+  @media(max-width:560px){.controls{grid-template-columns:1fr}}
+
+  /* canvas screen */
+  .screen-wrap{background:var(--raised);border:1px solid var(--line);border-radius:14px;padding:12px;
+    box-shadow:var(--shadow)}
+  .canvas-box{position:relative;background:var(--screen);border-radius:10px;overflow:hidden;
+    aspect-ratio:1;width:min(100%,50vh);margin:0 auto;display:flex;align-items:center;justify-content:center}
+  #lenia{width:100%;height:100%;image-rendering:pixelated;display:block;touch-action:none}
+  #lenia.manual{cursor:crosshair}
+  #overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  .badge{position:absolute;top:9px;left:9px;font-family:"IBM Plex Mono",monospace;font-size:10.5px;
+    letter-spacing:.1em;text-transform:uppercase;padding:4px 9px;border-radius:7px;
+    background:rgba(11,7,16,.72);border:1px solid var(--line2);color:var(--m4);backdrop-filter:blur(4px)}
+  .badge.you{color:var(--accent)}
+  /* nowrap + tabular digits ⇒ the live values never change the readout's height as they
+     update, so the page never reflows when the agent acts. Overflow is clipped only in
+     extreme runaway cases on very narrow columns. */
+  .readout{display:flex;gap:12px;flex-wrap:nowrap;overflow:hidden;margin-top:10px;
+    font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+  .readout>span{flex:0 0 auto}
+  .readout b{color:var(--ink);font-weight:500}
+  .readout .k{color:var(--faint)}
+  .readout .ok{color:var(--good)}
+
+  .transport{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center}
+  button{font-family:"Inter",sans-serif;font-size:13px;font-weight:500;color:var(--ink);
+    background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:8px 12px;cursor:pointer;
+    transition:.14s}
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  button.on{background:var(--ramp);color:#1a0a14;border:none;font-weight:600}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .seg button{border:none;border-radius:0;border-right:1px solid var(--line)}
+  .seg button:last-child{border-right:none}
+  .transport .reset-group{display:inline-flex;gap:6px;margin-left:auto;padding-left:10px;border-left:1px solid var(--line)}
+  @media(max-width:420px){.transport .reset-group{margin-left:0;padding-left:0;border-left:none}}
+
+  /* playback: live/runtime controls kept next to the canvas they affect */
+  .playback{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-top:10px;
+    padding-top:10px;border-top:1px solid var(--line)}
+  .playback .mini{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);flex:1 1 130px}
+  .playback .mini span{white-space:nowrap}
+  .playback .mini input[type=range]{flex:1;min-width:60px}
+  .playback .mini select{flex:1;min-width:60px;padding:5px 7px;font-size:11px}
+  .playback .mini b{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--accent);
+    min-width:38px;text-align:right;font-weight:500}
+  .playback .chk{font-size:11.5px;flex:0 0 auto}
+
+  /* controls */
+  .panel{background:var(--raised);border:1px solid var(--line);border-radius:14px;padding:13px 14px}
+  .panel h3{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;
+    color:var(--m4);margin:0 0 10px;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .controls .panel{margin:0}
+  label.field{display:block;margin:0 0 10px}
+  label.field:last-child{margin-bottom:0}
+  label.field .row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
+  label.field .name{font-size:12.5px;color:var(--ink)}
+  label.field .val{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--accent)}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:3px;
+    background:var(--line2);outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;
+    background:var(--accent);cursor:pointer;box-shadow:0 0 8px rgba(252,169,107,.6)}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border:none;border-radius:50%;
+    background:var(--accent);cursor:pointer}
+  select,input[type=text]{width:100%;font-family:"Inter",sans-serif;font-size:12.5px;color:var(--ink);
+    background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 9px}
+  input[type=text]{font-family:"IBM Plex Mono",monospace;font-size:12px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .chk{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer}
+  .chk input{accent-color:var(--accent);width:14px;height:14px}
+  .status{font-family:"IBM Plex Mono",monospace;font-size:11px;display:flex;align-items:center;gap:7px;color:var(--muted);text-transform:none;letter-spacing:0}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:0 0 auto}
+  .dot.load{background:var(--m4);animation:pulse 1s infinite}
+  .dot.ready{background:var(--good)}
+  .dot.err{background:var(--accent2)}
+  @keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
+  .tip{font-size:11.5px;color:var(--muted);margin:8px 0 0}
+  .targetbar{height:5px;border-radius:4px;background:var(--line2);position:relative;margin-top:8px;overflow:hidden}
+  .targetbar .fill{position:absolute;left:0;top:0;bottom:0;background:var(--ramp);width:0%}
+  .targetbar .tick{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--good)}
+
+  /* about — self-contained explanation, collapsed by default */
+  details.about{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+  details.about>summary{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--accent);cursor:pointer;list-style:none}
+  details.about>summary::-webkit-details-marker{display:none}
+  details.about>summary::before{content:"▸  ";color:var(--faint)}
+  details.about[open]>summary::before{content:"▾  "}
+  details.about .body{margin-top:12px;font-size:12.5px;color:var(--muted);line-height:1.55;
+    display:grid;grid-template-columns:repeat(3,1fr);gap:14px 26px}
+  @media(max-width:860px){details.about .body{grid-template-columns:1fr 1fr}}
+  @media(max-width:600px){details.about .body{grid-template-columns:1fr}}
+  details.about h4{margin:0 0 3px;font-size:11px;color:var(--ink);font-family:"IBM Plex Mono",monospace;letter-spacing:.06em;text-transform:uppercase}
+  details.about code{font-family:"IBM Plex Mono",monospace;color:var(--accent);background:rgba(252,169,107,.08);
+    padding:1px 5px;border-radius:4px;font-size:.9em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <button id="theme-toggle" class="theme-toggle" title="Switch to dark mode" aria-label="Toggle dark mode">🌙</button>
+  </div>
+  <h1><b>CARL</b> Demo</h1>
+  
+  <div class="stage">
+    <!-- LEFT: canvas + transport -->
+    <div class="screen-wrap">
+      <div class="canvas-box">
+        <canvas id="lenia"></canvas>
+        <canvas id="overlay"></canvas>
+        <div class="badge" id="badge">CARL is acting</div>
+      </div>
+      <div class="readout">
+        <span><span class="k">mass</span> <b id="r-mass">0</b> <span class="k">/</span> <b id="r-target">100</b></span>
+        <span><span class="k">step</span> <b id="r-step">0</b></span>
+        <span><span class="k">act</span> <b id="r-act">0</b></span>
+        <span><span class="k">infer</span> <b id="r-ms">–</b> <span class="k" id="r-backend" title="Which backend CARL's network is running on. Both WASM (CPU) and WebGPU are benchmarked once at load, when available — the faster one wins, since GPU dispatch overhead can outweigh its speedup for a model this small."></span></span>
+        <span><span class="k">rate</span> <b id="r-rate">–</b></span>
+        <span><span class="k">clock</span> <b id="r-clock">0.00</b></span>
+      </div>
+      <div class="targetbar"><div class="fill" id="r-fill"></div><div class="tick" id="r-tick"></div></div>
+      <div class="transport">
+        <div class="seg" title="Who places the actions">
+          <button id="who-agent" class="on">🤖 CARL</button>
+          <button id="who-you">🖐 You</button>
+        </div>
+        <button id="play">Play</button>
+        <button id="step1">Step</button>
+        <button id="loop" title="Keep CARL acting forever instead of muting after one 150-step episode">Loop</button>
+        <div class="reset-group">
+          <button id="seed">Seed</button>
+          <button id="clear">Clear</button>
+        </div>
+      </div>
+      <p class="tip" id="modetip">CARL places one action per step (add / remove / nothing) to hold the target mass. Press <b>Play</b>.</p>
+      <div class="playback">
+        <label class="mini" title="Target simulation speed, in steps per second.">
+          <span>speed</span>
+          <input type="range" id="spd" min="1" max="120" step="1" value="20">
+          <b id="v-spd">20/s</b>
+        </label>
+        <label class="mini" title="Episode clock fed to CARL as context (0→1 over the 150-step episode). Drag to preview its behavior at a fixed phase.">
+          <span>clock t</span>
+          <input type="range" id="clock" min="0" max="1" step="0.005" value="0">
+          <b id="v-clock">auto</b>
+        </label>
+        <label class="chk" title="Freeze the episode clock at the slider's value instead of letting it auto-advance."><input type="checkbox" id="clockhold"> hold</label>
+        <label class="mini" title="Overlay CARL's per-cell Q-values. Max = the best action per cell (what CARL would do there); add/remove/no-op = that single action's value alone, for comparing how CARL weighs each option.">
+          <span>Q-map</span>
+          <select id="qchan">
+            <option value="off" selected>off</option>
+            <option value="max">max</option>
+            <option value="add">add</option>
+            <option value="remove">remove</option>
+            <option value="noop">no-op</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <!-- RIGHT: controls (2×2 grid) -->
+    <div class="controls">
+      <div class="panel">
+        <h3>Soliton recipe</h3>
+        <select id="recipe" title="Paper-validated combos where the agent makes a soliton — picking one reseeds and runs"></select>
+      </div>
+
+      <div class="panel">
+        <h3>Goal</h3>
+        <div class="two">
+          <label class="field" style="margin-bottom:0" title="The total grid mass CARL tries to hold steady.">
+            <div class="row"><span class="name">target τ</span><span class="val" id="v-tgt">100</span></div>
+            <input type="range" id="tgt" min="0" max="1000" step="10" value="100">
+          </label>
+          <label class="field" style="margin-bottom:0" title="Penalty per intervention. Higher cost makes CARL act more sparsely.">
+            <div class="row"><span class="name">cost c</span><span class="val" id="v-cost">0.10</span></div>
+            <input type="range" id="cost" min="0" max="0.4" step="0.01" value="0.1">
+          </label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Update rule</h3>
+        <div class="two">
+          <label class="field" style="margin-bottom:8px" title="Hand-selected presets demonstrating CARL.">
+            <div class="row"><span class="name">preset</span></div>
+            <select id="preset"></select>
+          </label>
+          <label class="field" style="margin-bottom:8px" title="Kernel concentric ring weights β₁…β_b.">
+            <div class="row"><span class="name">β rings</span></div>
+            <input type="text" id="betas" value="1,0.75,0.25,0.75">
+          </label>
+        </div>
+        <div class="two">
+          <label class="field" style="margin-bottom:8px" title="Growth function center.">
+            <div class="row"><span class="name">μ</span><span class="val" id="v-m">0.300</span></div>
+            <input type="range" id="m" min="0.05" max="0.6" step="0.005" value="0.3">
+          </label>
+          <label class="field" style="margin-bottom:8px" title="Growth function width.">
+            <div class="row"><span class="name">σ</span><span class="val" id="v-s">0.037</span></div>
+            <input type="range" id="s" min="0.003" max="0.12" step="0.001" value="0.037">
+          </label>
+        </div>
+        <label class="field" style="margin-bottom:7px" title="ρ: Radius of the Lenia convolution kernel.">
+          <div class="row"><span class="name">kernel radius R</span><span class="val" id="v-R">10</span></div>
+          <input type="range" id="R" min="6" max="20" step="1" value="10">
+        </label>
+        <label class="chk" title="Rescale action radius and target mass proportionally when R changes, matching the paper's rescaled-kernel generalization test."><input type="checkbox" id="scaleR" checked> scale R<sub>a</sub> &amp; τ with R</label>
+      </div>
+
+      <div class="panel">
+        <h3>Action &amp; world</h3>
+        <label class="field" style="margin-bottom:8px" title="Radius of the intervention, i.e. how large an area one action affects.">
+          <div class="row"><span class="name">action radius R<sub>a</sub></span><span class="val" id="v-ra">5</span></div>
+          <input type="range" id="ra" min="1" max="20" step="1" value="5">
+        </label>
+        <label class="field" style="margin-bottom:8px" title="How much mass one action adds or removes per affected cell.">
+          <div class="row"><span class="name">action magnitude M<sub>a</sub></span><span class="val" id="v-ma">0.30</span></div>
+          <input type="range" id="ma" min="0.05" max="0.6" step="0.05" value="0.3">
+        </label>
+          <div class="row"><span class="name">board size</span></div>
+          <select id="board">
+            <option value="64" selected>64²</option>
+            <option value="96">96²</option>
+            <option value="128">128²</option>
+            <option value="192">192²</option>
+          </select>
+        </label>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ====================================================================================
+//  CONFIG — locked to the canonical mass run (models/meta_mass.json)
+// ====================================================================================
+const CFG = {
+  H: 64, W: 64,            // board (trained size; the net is fully-conv so others work too)
+  R: 10,                   // kernel radius
+  dt: 0.1,
+  K: 4,                    // frame stack
+  actionValue: [0.3, -0.3, 0.0],   // add / remove / no-op  (output channel order)
+  actionRadiusTrained: 5,
+  actionMagTrained: 0.3,
+  maxSteps: 150,           // episode length used for the time signal
+  noTime: false,
+  targetMin: 0, targetMax: 200,
+  costMin: 0, costMax: 0.2,
+  modelUrl: 'models/agent_mass.onnx',
+  presetsUrl: 'models/presets_mass.json',
+};
+// Inline fallback presets (validated to self-sustain). Full list fetched from presetsUrl if available.
+const FALLBACK_PRESETS = [
+  {name:"β=[1,0.75,0.25,0.75] · μ0.300 · σ0.037 (stable soliton)",mu:0.3,sigma:0.037,betas:[1,0.75,0.25,0.75]},
+  {name:"β=[0.5,0.75,1] · μ0.225 · σ0.025",mu:0.225,sigma:0.025,betas:[0.5,0.75,1]},
+  {name:"β=[1,0.5] · μ0.240 · σ0.024",mu:0.24,sigma:0.024,betas:[1,0.5]},
+  {name:"β=[1,0.75,0.25,0.75] · μ0.355 · σ0.050",mu:0.355,sigma:0.05,betas:[1,0.75,0.25,0.75]},
+];
+const DEFAULT_PRESET = FALLBACK_PRESETS[0];
+
+// Known-good (rule, target, cost) recipes — each validated on the exported model to make a
+// soliton that self-sustains for 120+ agent-free steps. All use the trained kernel R=10, Ra=5, Ma=0.3.
+// Pulled straight from the paper's fresh_parody evaluation (selforg / novel-rules / unseen-radii).
+// Each carries the exact rule (μ,σ,β) the model was conditioned on, plus the eval's kernel R,
+// action radius Rₐ≈R/2, target τ, cost c and a board ≈ round(64·R/10) ("properly sized").
+const RECIPES = [
+  // ── trained scale: R=10, 64² board, Rₐ=5 (selforg + novel-rule rollouts) ──
+  {name:"Jumper",         mu:0.225,sigma:0.025, betas:[0.5,0.75,1.0], R:10, Ra:5, target:100, cost:0.1, board:64},
+  {name:"Two Jumpers",    mu:0.225,sigma:0.025, betas:[0.5,0.75,1.0], R:10, Ra:5, target:200, cost:0.1, board:64},
+  {name:"Glider",         mu:0.26, sigma:0.042, betas:[0.5,0.75,1.0], R:10, Ra:5, target:130, cost:0.15, board:64},
+  {name:"Star",           mu:0.195,sigma:0.027, betas:[0.5,1.0],      R:17, Ra:7, target:260, cost:0.05, board:96},  
+  {name:"Rotator",        mu:0.24, sigma:0.038, betas:[1.0],          R:15, Ra:7, target:250, cost:0.05, board:96},  
+  {name:"Long",           mu:0.33, sigma:0.054, betas:[1.0],          R:10, Ra:4, target:250, cost:0.08, board:96},
+  {name:"Two Blobs",      mu:0.26, sigma:0.036, betas:[1.0,1.0,1.0],  R:10, Ra:5, target:250, cost:0.1, board:64},
+  {name:"Eye",            mu:0.30, sigma:0.038, betas:[1.0,1.0,1.0],  R:10, Ra:5, target:300, cost:0.1, board:96},
+  {name:"Blob 2",         mu:0.23,sigma:0.026, betas:[0.5,0.1,0.4],  R:18, Ra:7, target:390, cost:0.26, board:96},
+  {name:"The Line",       mu:0.49,sigma:0.072, betas:[0.5,1.0],     R:12, Ra:9, Ma:0.6, target:1000, cost:0.40, board:64},
+];
+
+// ====================================================================================
+//  Colormap (viridis)
+// ====================================================================================
+function buildLUT(stops){
+  const lut=new Uint8Array(256*3);
+  for(let i=0;i<256;i++){
+    const t=i/255*(stops.length-1), k=Math.min(stops.length-2,Math.floor(t)), f=t-k;
+    for(let c=0;c<3;c++) lut[i*3+c]=stops[k][c]+(stops[k+1][c]-stops[k][c])*f;
+  }
+  return lut;
+}
+const VIRIDIS=buildLUT([[0,0,0],[255,255,255]]);
+const COOLWARM=buildLUT([[59,76,192],[120,140,225],[192,196,232],[230,210,200],[233,150,130],[210,80,70],[180,4,38]]);
+
+// ====================================================================================
+//  State
+// ====================================================================================
+let H=CFG.H, W=CFG.W, N=H*W; const K=CFG.K;
+let state=new Float32Array(N), conv=new Float32Array(N);
+let stack=[];                       // K Float32Arrays, oldest..newest
+let kdx,kdy,kw,knn, modW,modH;      // kernel + toroidal lookup
+let mu=DEFAULT_PRESET.mu, sig=DEFAULT_PRESET.sigma, betas=DEFAULT_PRESET.betas.slice();
+let Ra=CFG.actionRadiusTrained, Ma=CFG.actionMagTrained;
+let R=CFG.R, scaleWithR=true;       // kernel radius (default 10); optionally co-scales Ra & target
+let target=100, cost=0.1, sps=20;     // target steps per second (wall-clock)
+let stepAcc=0, lastT=0, measSps=0;    // accumulator + measured rate for the steps/sec scheduler
+let rateSteps=0, rateTime=0;          // 0.5s window for the measured-rate readout
+const MAX_STEPS_PER_FRAME=6;          // cap so a burst can't freeze the page
+let running=false, steps=0, actions=0, mode='agent';
+let qChan='off';                    // Q-map overlay channel: off · max · add · remove · noop
+const Q_CHANNEL_IDX={add:0,remove:1,noop:2};   // matches CFG.actionValue's [add,remove,no-op] order
+let clockHold=false, clockVal=0;   // episode clock: auto-loops, or frozen at clockVal
+let loopMode=false;                // default: act ONE episode (CFG.maxSteps) then mute (free-run); true: act forever
+let session=null, busy=false, lastMs=0, lastQ=null, lastAction=null;
+
+const cv=document.getElementById('lenia'), ctx=cv.getContext('2d');
+const ov=document.getElementById('overlay'), octx=ov.getContext('2d');
+const qcv=document.createElement('canvas'); qcv.width=W; qcv.height=H;
+const qctx=qcv.getContext('2d');
+let img;
+const $=id=>document.getElementById(id);
+
+// ====================================================================================
+//  Kernel (matches _compute_chan_kernel / _quad_kernel_core)
+// ====================================================================================
+function quad4(r){const q=4*r*(1-r);return q*q*q*q;}
+function buildKernel(){
+  const KS=2*R+1, grid=[]; let sum=0;
+  for(let iy=0;iy<KS;iy++){
+    grid.push([]);
+    const yy=-1+2*iy/(KS-1);
+    for(let ix=0;ix<KS;ix++){
+      const xx=-1+2*ix/(KS-1);
+      let r=Math.sqrt(xx*xx+yy*yy); if(r>1) r=0;
+      let v; const b=betas.length;
+      if(b>1){ const Br=b*r; let idx=Math.floor(Br); if(idx>b-1) idx=b-1; v=betas[idx]*quad4(Br%1); }
+      else v=betas[0]*quad4(r);
+      grid[iy].push(v); sum+=v;
+    }
+  }
+  if(sum<1e-6) sum=1;
+  const dxA=[],dyA=[],wA=[];
+  for(let iy=0;iy<KS;iy++)for(let ix=0;ix<KS;ix++){
+    const w=grid[iy][ix]/sum;
+    if(w>1e-7){ dyA.push(iy-R); dxA.push(ix-R); wA.push(w); }
+  }
+  kdx=Int32Array.from(dxA); kdy=Int32Array.from(dyA); kw=Float32Array.from(wA); knn=wA.length;
+}
+function allocGrid(){
+  const padW=W+40, padH=H+40;
+  modW=new Int32Array(W+2*padW); for(let i=0;i<modW.length;i++) modW[i]=((i-padW)%W+W)%W;
+  modH=new Int32Array(H+2*padH); for(let i=0;i<modH.length;i++) modH[i]=((i-padH)%H+H)%H;
+  modW.pad=padW; modH.pad=padH;
+  cv.width=W; cv.height=H; img=ctx.createImageData(W,H);
+  qcv.width=W; qcv.height=H;
+}
+function setBoard(size){
+  H=W=size; N=H*W;
+  state=new Float32Array(N); conv=new Float32Array(N);
+  allocGrid(); buildKernel(); seed20();   // seed20 refills the frame stack + renders
+}
+
+// one Lenia step (circular convolution, shift-accumulate) — identical to lenia.py dynamics
+function stepSim(){
+  conv.fill(0);
+  const pw=modW.pad, ph=modH.pad;
+  for(let o=0;o<knn;o++){
+    const dx=kdx[o], dy=kdy[o], w=kw[o];
+    for(let y=0;y<H;y++){
+      const sy=modH[y+dy+ph], rowS=sy*W, rowO=y*W, base=pw+dx;
+      for(let x=0;x<W;x++) conv[rowO+x]+=w*state[rowS+modW[x+base]];
+    }
+  }
+  const inv=1/(2*sig*sig);
+  for(let i=0;i<N;i++){
+    const d=mu-conv[i];
+    const v=state[i]+(2*Math.exp(-(d*d)*inv)-1)*CFG.dt;
+    state[i]=v<0?0:(v>1?1:v);
+  }
+  steps++;
+}
+
+// action: add/remove Ma·sign in disk of radius Ra (matches env._apply_action)
+function applyAction(gx,gy,delta){
+  const r2=Ra*Ra;
+  for(let dy=-Ra;dy<=Ra;dy++)for(let dx=-Ra;dx<=Ra;dx++){
+    if(dx*dx+dy*dy>r2) continue;
+    const y=((gy+dy)%H+H)%H, x=((gx+dx)%W+W)%W, i=y*W+x;
+    const v=state[i]+delta; state[i]=v<0?0:(v>1?1:v);
+  }
+}
+
+// frame stack -------------------------------------------------------------------------
+function pushStack(){ stack.push(Float32Array.from(state)); if(stack.length>K) stack.shift(); }
+function fillStack(){ stack=[]; for(let i=0;i<K;i++) stack.push(Float32Array.from(state)); }
+
+// ====================================================================================
+//  Context vector (12-D) — exact layout from meta_mass.json
+//   [time, target_norm, cost_norm, dt, R, mu, sig, b0,b1,b2,b3, n_beta]
+// ====================================================================================
+// The agent acts for one CFG.maxSteps-long episode, then its actions mute and the CA
+// evolves freely (paper's post-rollout protocol) — unless loop mode keeps it acting.
+function agentActive(){ return loopMode || steps < CFG.maxSteps; }
+function clockTime(){            // normalized episode time fed to the net (context dim 0)
+  if(CFG.noTime) return 0;
+  if(clockHold) return clockVal;
+  if(loopMode) return (steps%CFG.maxSteps)/CFG.maxSteps;   // loop 0→1 forever
+  return Math.min(steps,CFG.maxSteps)/CFG.maxSteps;        // episode: climbs 0→1, then holds at 1
+}
+function buildContext(){
+  const c=new Float32Array(12);
+  c[0]=clockTime();
+  c[1]=(target-CFG.targetMin)/(CFG.targetMax-CFG.targetMin);
+  c[2]=(cost-CFG.costMin)/(CFG.costMax-CFG.costMin);
+  c[3]=CFG.dt; c[4]=R; c[5]=mu; c[6]=sig;
+  for(let i=0;i<4;i++) c[7+i]=i<betas.length?betas[i]:0;
+  c[11]=betas.length;
+  return c;
+}
+function buildStateInput(){
+  const data=new Float32Array(K*N);
+  for(let k=0;k<K;k++) data.set(stack[k], k*N);
+  return data;
+}
+
+// ====================================================================================
+//  Agent step (greedy argmax over the per-cell, per-action Q-map)
+// ====================================================================================
+async function agentStep(){
+  if(!session) return;
+  const t0=performance.now();
+  const feeds={
+    state:   new ort.Tensor('float32', buildStateInput(), [1,K,H,W]),
+    context: new ort.Tensor('float32', buildContext(),    [1,12]),
+  };
+  const out=await session.run(feeds);
+  const q=out.q.data;                  // length 3*N, channel-major: [type][y][x]
+  lastMs=performance.now()-t0;
+  // argmax over all 3*N
+  let best=0, bv=q[0];
+  for(let i=1;i<q.length;i++) if(q[i]>bv){bv=q[i]; best=i;}
+  lastQ=q;
+  const at=Math.floor(best/N), pos=best%N, r=Math.floor(pos/W), c=pos%W;
+  const sign=Math.sign(CFG.actionValue[at]);            // +1 add, -1 remove, 0 no-op
+  if(sign!==0){ applyAction(c,r,sign*Ma); actions++; }
+  lastAction={r,c,at,sign};
+  stepSim();
+  pushStack();
+}
+function manualStepNoOp(){ stepSim(); pushStack(); userActedThisStep=false; }   // "you act" tick: evolve + free the next action
+function freeRunStep(){ lastAction=null; lastQ=null; stepSim(); pushStack(); }  // agent muted: CA evolves with no intervention
+
+// ====================================================================================
+//  Render
+// ====================================================================================
+function render(){
+  let mass=0;
+  for(let i=0;i<N;i++){
+    const v=state[i]; mass+=v;
+    const c=v<0?0:(v>1?255:(v*255)|0), o=i*4, l=c*3;
+    img.data[o]=VIRIDIS[l];img.data[o+1]=VIRIDIS[l+1];img.data[o+2]=VIRIDIS[l+2];img.data[o+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+
+  // overlay: Q heatmap + agent action marker
+  const r=cv.getBoundingClientRect();
+  if(ov.width!==Math.round(r.width)){ ov.width=Math.round(r.width)||W; ov.height=Math.round(r.height)||H; }
+  octx.clearRect(0,0,ov.width,ov.height);
+  const sc=ov.width/W;
+
+  if(qChan!=='off' && lastQ){
+    // per-cell value for the selected channel — either the best Q across the 3 action
+    // types (max), or one type's Q alone (add/remove/noop) — normalized to that channel's range.
+    const vals=new Float32Array(N);
+    if(qChan==='max'){
+      for(let i=0;i<N;i++){ let m=lastQ[i]; if(lastQ[N+i]>m)m=lastQ[N+i]; if(lastQ[2*N+i]>m)m=lastQ[2*N+i]; vals[i]=m; }
+    } else {
+      const base=Q_CHANNEL_IDX[qChan]*N;
+      for(let i=0;i<N;i++) vals[i]=lastQ[base+i];
+    }
+    let mn=Infinity,mx=-Infinity;
+    for(let i=0;i<N;i++){ const v=vals[i]; if(v<mn)mn=v; if(v>mx)mx=v; }
+    const qimg=qctx.createImageData(W,H), span=(mx-mn)||1;
+    for(let i=0;i<N;i++){ const t=((vals[i]-mn)/span*255)|0, o=i*4, l=t*3;
+      qimg.data[o]=COOLWARM[l];qimg.data[o+1]=COOLWARM[l+1];qimg.data[o+2]=COOLWARM[l+2];qimg.data[o+3]=110; }
+    qctx.putImageData(qimg,0,0);
+    octx.imageSmoothingEnabled=false;
+    octx.drawImage(qcv,0,0,ov.width,ov.height);
+  }
+  if(lastAction && lastAction.sign!==0){
+    const px=(lastAction.c+0.5)*sc, py=(lastAction.r+0.5)*sc;
+    octx.beginPath(); octx.arc(px,py,Ra*sc,0,7);
+    octx.strokeStyle=lastAction.sign>0?'rgba(83,185,121,.95)':'rgba(222,73,104,.95)';
+    octx.lineWidth=3; octx.stroke();
+  }
+
+  // readouts
+  if(mode==='agent') $('badge').textContent = agentActive() ? 'CARL is acting' : 'Free-running · agent muted';
+  $('r-mass').textContent=mass.toFixed(1);
+  $('r-target').textContent=target;
+  $('r-step').textContent=steps;
+  $('r-act').textContent=actions;
+  $('r-ms').textContent=lastMs?lastMs.toFixed(1)+'ms':'–';
+  $('r-rate').textContent=measSps?measSps.toFixed(0)+'/s':'–';
+  const tc=clockTime();
+  $('r-clock').textContent=tc.toFixed(2);
+  if(!clockHold) $('clock').value=tc;   // slider visibly tracks the looping clock
+  const barMax=Math.max(2*target,mass*1.05,CFG.targetMax);   // adaptive (target ↔ 200 trained max)
+  $('r-fill').style.width=Math.min(100,mass/barMax*100)+'%';
+  $('r-tick').style.left=Math.min(100,target/barMax*100)+'%';
+  const close=Math.abs(mass-target)<target*0.12+8;
+  $('r-mass').className=close?'ok':'';
+}
+
+// ====================================================================================
+//  Main loop
+// ====================================================================================
+async function loop(){
+  if(!running){ return; }
+  if(!busy){
+    busy=true;
+    const now=performance.now();
+    if(!lastT) lastT=now;
+    let elapsed=(now-lastT)/1000;
+    if(elapsed>0.25) elapsed=0.25;        // clamp big gaps (background tab)
+    lastT=now;
+    stepAcc+=elapsed*sps;
+    let want=Math.floor(stepAcc);
+    stepAcc-=want;                         // keep fractional remainder, drop any backlog
+    const n=Math.min(want, MAX_STEPS_PER_FRAME);
+    try{
+      for(let k=0;k<n;k++){
+        if(mode==='agent'){ if(agentActive()) await agentStep(); else freeRunStep(); }
+        else manualStepNoOp();
+      }
+    } finally { busy=false; }
+    rateSteps+=n; rateTime+=elapsed;                       // true average over a 0.5s window
+    if(rateTime>=0.5){ measSps=rateSteps/rateTime; rateSteps=0; rateTime=0; }
+    if(n>0) render();
+  }
+  requestAnimationFrame(loop);
+}
+function setRunning(v){
+  running=v; userActedThisStep=false;
+  $('play').textContent=running?'Pause':'Play';
+  $('play').classList.toggle('on',running);
+  if(running){ lastT=0; stepAcc=0; rateSteps=0; rateTime=0; loop(); }   // reset scheduler so resume doesn't burst
+}
+
+// ====================================================================================
+//  Seeding / interaction
+// ====================================================================================
+// Procedural initial state — matches the env reset (lenia_env_time_v3.reset):
+// apply 20 random actions to an EMPTY grid, with the action TYPE sampled uniformly over
+// all types (add / remove / no-op) and the location uniform, WITHOUT evolving the CA between
+// them. On an empty grid remove/no-op are inert, so only ~1/3 of the 20 actually add mass.
+function seed20(){
+  state.fill(0);
+  const nT=CFG.actionValue.length;                  // 3: [+0.3, -0.3, 0.0]
+  for(let k=0;k<20;k++){
+    const at=(Math.random()*nT)|0;                  // uniform action type
+    const sign=Math.sign(CFG.actionValue[at]);      // +1 add, -1 remove, 0 no-op
+    if(sign!==0) applyAction((Math.random()*W)|0,(Math.random()*H)|0,sign*Ma);
+  }
+  steps=0; actions=0; lastAction=null; lastQ=null; fillStack(); render();
+}
+function clearGrid(){ state.fill(0); steps=0; actions=0; lastAction=null; lastQ=null; fillStack(); render(); }
+
+// Manual interaction ("you act" mode): at most ONE action per timestep, mirroring the env
+// (each step = one action, then one CA evolution). A discrete click is one action — no drag.
+//   • paused  → the click IS the timestep: apply the action, then evolve one step.
+//   • running → inject one action into the current auto-evolving step; extra clicks are
+//               blocked by `userActedThisStep` until the next evolve clears it.
+let userActedThisStep=false;
+function evToGrid(e){
+  const r=cv.getBoundingClientRect();
+  const px=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+  const py=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
+  return [Math.floor(px/r.width*W), Math.floor(py/r.height*H)];
+}
+function userAct(e,delta){
+  if(mode!=='you' || userActedThisStep) return;     // one action per timestep
+  const [gx,gy]=evToGrid(e);
+  applyAction(gx,gy,delta*Ma); actions++;
+  lastAction={r:gy,c:gx,sign:Math.sign(delta)};       // marker feedback at the click
+  userActedThisStep=true;
+  if(!running){ stepSim(); pushStack(); userActedThisStep=false; }  // paused: click = a full timestep
+  render();
+}
+cv.addEventListener('mousedown',e=>{ if(mode!=='you')return; e.preventDefault(); userAct(e, e.button===2?-1:1); });
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('touchstart',e=>{ if(mode!=='you')return; e.preventDefault(); userAct(e, 1); },{passive:false});
+
+// ====================================================================================
+//  Controls
+// ====================================================================================
+function setMode(m){
+  mode=m; userActedThisStep=false;
+  const agent=m==='agent';
+  $('who-agent').classList.toggle('on',agent);
+  $('who-you').classList.toggle('on',!agent);
+  cv.classList.toggle('manual',!agent);
+  $('badge').textContent=agent?'CARL is acting':'You are acting';
+  $('badge').classList.toggle('you',!agent);
+  $('modetip').innerHTML=agent
+    ? 'CARL acts for 150 steps, then <b>mutes</b> so you can watch the pattern evolve. <b>Loop</b> keeps it acting.'
+    : 'Click to act — <b>one action per step</b> (left add · right remove). Paused, a click also steps; <b>Step</b> = evolve only.';
+}
+function loadPreset(p){
+  mu=p.mu; sig=p.sigma; betas=p.betas.slice();
+  $('betas').value=betas.join(','); $('m').value=mu; $('v-m').textContent=mu.toFixed(3);
+  $('s').value=sig; $('v-s').textContent=sig.toFixed(3);
+  buildKernel();
+}
+function applyRecipe(r){
+  setMode('agent');
+  // kernel radius + action radius (set R first so loadPreset's buildKernel uses it)
+  R=r.R;   $('R').value=R;   $('v-R').textContent=R;
+  Ra=r.Ra; $('ra').value=Ra; $('v-ra').textContent=Ra;
+  Ma=r.Ma??0.3; $('ma').value=Ma; $('v-ma').textContent=Ma.toFixed(2);
+  // rule (μ, σ, β) + kernel rebuild
+  loadPreset({mu:r.mu, sigma:r.sigma, betas:r.betas});
+  // goal
+  target=r.target; $('tgt').value=target; $('v-tgt').textContent=target; $('r-target').textContent=target;
+  cost=r.cost; $('cost').value=cost; $('v-cost').textContent=cost.toFixed(2);
+  // clock back to auto
+  clockHold=false; $('clockhold').checked=false; $('v-clock').textContent='auto';
+  // properly-sized board (reseeds + rebuilds the kernel for the new R)
+  $('board').value=String(r.board);
+  setRunning(false); setBoard(r.board); setRunning(true);
+}
+$('who-agent').addEventListener('click',()=>setMode('agent'));
+$('who-you').addEventListener('click',()=>setMode('you'));
+$('play').addEventListener('click',()=>setRunning(!running));
+$('loop').addEventListener('click',()=>{ loopMode=!loopMode; $('loop').classList.toggle('on',loopMode);
+  $('modetip').innerHTML = loopMode
+    ? 'Loop on — CARL acts every step (clock loops 0→1). Toggle <b>Loop</b> off for a single 150-step episode then free evolution.'
+    : 'CARL acts for 150 steps, then <b>mutes</b> so you can watch the pattern evolve. <b>Loop</b> keeps it acting.';
+  if(!running) render();
+});
+$('step1').addEventListener('click',async()=>{ if(mode==='agent'){ if(agentActive()) await agentStep(); else freeRunStep(); } else manualStepNoOp(); render(); });
+$('seed').addEventListener('click',seed20);
+$('clear').addEventListener('click',clearGrid);
+$('tgt').addEventListener('input',e=>{target=+e.target.value; $('v-tgt').textContent=target; $('r-target').textContent=target; render();});
+$('cost').addEventListener('input',e=>{cost=+e.target.value; $('v-cost').textContent=cost.toFixed(2);});
+$('clock').addEventListener('input',e=>{ clockVal=+e.target.value; clockHold=true; $('clockhold').checked=true;
+  $('v-clock').textContent='hold '+clockVal.toFixed(2); if(!running) render(); });
+$('clockhold').addEventListener('change',e=>{ clockHold=e.target.checked;
+  $('v-clock').textContent=clockHold?('hold '+clockVal.toFixed(2)):'auto'; });
+$('m').addEventListener('input',e=>{mu=+e.target.value; $('v-m').textContent=mu.toFixed(3);});
+$('s').addEventListener('input',e=>{sig=+e.target.value; $('v-s').textContent=sig.toFixed(3); buildKernel();});
+$('betas').addEventListener('change',e=>{const a=e.target.value.split(',').map(x=>parseFloat(x.trim())).filter(x=>!isNaN(x)); if(a.length){betas=a;buildKernel();}});
+$('R').addEventListener('input',e=>{
+  const Rn=+e.target.value, ratio=Rn/R; R=Rn; $('v-R').textContent=R;
+  if(scaleWithR){
+    Ra=Math.max(1,Math.min(20,Math.floor(R/2))); $('ra').value=Ra; $('v-ra').textContent=Ra;
+    target=Math.max(0,Math.min(1000,Math.round(target*ratio*ratio))); $('tgt').value=target;
+    $('v-tgt').textContent=target; $('r-target').textContent=target;
+  }
+  buildKernel(); if(!running) render();
+});
+$('scaleR').addEventListener('change',e=>{scaleWithR=e.target.checked;});
+$('ra').addEventListener('input',e=>{Ra=+e.target.value; $('v-ra').textContent=Ra;});
+$('ma').addEventListener('input',e=>{Ma=+e.target.value; $('v-ma').textContent=Ma.toFixed(2);});
+$('spd').addEventListener('input',e=>{sps=+e.target.value; $('v-spd').textContent=sps+'/s';});
+$('board').addEventListener('change',e=>{ const was=running; setRunning(false); setBoard(+e.target.value); if(was) setRunning(true); });
+$('qchan').addEventListener('change',e=>{qChan=e.target.value; render();});
+
+// ====================================================================================
+//  Theme — bright by default; dark only if the user explicitly switches (persisted)
+// ====================================================================================
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  $('theme-toggle').textContent = t==='dark' ? '☀️' : '🌙';
+  $('theme-toggle').title = t==='dark' ? 'Switch to light mode' : 'Switch to dark mode';
+  try{ localStorage.setItem('carl-theme', t); }catch(e){}
+}
+function initTheme(){
+  applyTheme(document.documentElement.getAttribute('data-theme')==='dark' ? 'dark' : 'light');
+  $('theme-toggle').addEventListener('click', ()=>{
+    applyTheme(document.documentElement.getAttribute('data-theme')==='dark' ? 'light' : 'dark');
+  });
+}
+
+// ====================================================================================
+//  Boot
+// ====================================================================================
+function populateRecipes(){
+  const sel=$('recipe');
+  RECIPES.forEach((r,i)=>{const o=document.createElement('option');o.value=i;o.textContent=r.name;sel.appendChild(o);});
+  sel.addEventListener('change',()=>applyRecipe(RECIPES[sel.value]));
+}
+async function populatePresets(){
+  let presets=FALLBACK_PRESETS;
+  try{
+    const res=await fetch(CFG.presetsUrl);
+    if(res.ok){ const full=await res.json();
+      // keep the validated default first, then the full distribution
+      presets=[DEFAULT_PRESET, ...full]; }
+  }catch(e){ /* offline / file:// — fall back to inline */ }
+  const sel=$('preset'); sel.innerHTML='';
+  presets.forEach((p,i)=>{const o=document.createElement('option');o.value=i;o.textContent=p.name;sel.appendChild(o);});
+  sel.addEventListener('change',()=>loadPreset(presets[sel.value]));
+}
+// Prefer whichever backend actually runs faster on THIS machine — WebGPU's per-step
+// dispatch and GPU↔CPU transfer overhead can outweigh its compute advantage for a model
+// this small (single-sample, 64–192px grid, invoked many times a second), so "available"
+// is not the same as "faster". WASM is created first as the reliable baseline; if WebGPU
+// is available too, one warm inference is timed on each and the faster session wins.
+async function loadModel(){
+  ort.env.wasm.wasmPaths='https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/';
+  ort.env.wasm.numThreads=1;
+
+  let wasmSession;
+  try{
+    wasmSession=await ort.InferenceSession.create(CFG.modelUrl,{executionProviders:['wasm']});
+  }catch(e){
+    console.error(e);
+    $('modetip').innerHTML='Model failed to load — serve over http(s), not file://. <b>You-act</b> mode still works.';
+    setMode('you'); setRunning(true);
+    return;
+  }
+
+  let webgpuSession=null;
+  if(navigator.gpu){
+    try{ webgpuSession=await ort.InferenceSession.create(CFG.modelUrl,{executionProviders:['webgpu']}); }
+    catch(e){ console.warn('WebGPU session unavailable, staying on CPU (wasm):',e); }
+  }
+
+  if(!webgpuSession){ session=wasmSession; $('r-backend').textContent='cpu'; return; }
+
+  // one throwaway run per session first (pays for shader compilation / JIT warmup so it
+  // doesn't pollute the comparison), then several timed runs each, averaged — a single
+  // sample can miss a backend that's fine on the first call but degrades under sustained
+  // repeated calls (e.g. WebGPU with no buffer/tensor reuse between steps, where every
+  // call re-allocates and re-uploads instead of reusing GPU-resident buffers).
+  const feeds={ state:new ort.Tensor('float32',buildStateInput(),[1,K,H,W]), context:new ort.Tensor('float32',buildContext(),[1,12]) };
+  const timeAvg=async(s,n=3)=>{
+    await s.run(feeds);
+    let total=0;
+    for(let i=0;i<n;i++){ const t0=performance.now(); await s.run(feeds); total+=performance.now()-t0; }
+    return total/n;
+  };
+  const wasmMs=await timeAvg(wasmSession), webgpuMs=await timeAvg(webgpuSession);
+  console.info(`backend benchmark (avg of 3) — wasm: ${wasmMs.toFixed(1)}ms · webgpu: ${webgpuMs.toFixed(1)}ms`);
+  if(webgpuMs<wasmMs){ session=webgpuSession; wasmSession.release(); $('r-backend').textContent='gpu'; }
+  else{ session=wasmSession; webgpuSession.release(); $('r-backend').textContent='cpu'; }
+}
+(function init(){
+  initTheme();
+  allocGrid(); loadPreset(DEFAULT_PRESET);
+  seed20(); setMode('agent'); render();
+  populateRecipes(); populatePresets(); loadModel();
+  $('recipe').value=0; applyRecipe(RECIPES[0]);
+})();
+</script>
+</body>
+</html>
