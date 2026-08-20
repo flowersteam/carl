@@ -167,7 +167,7 @@
       <div class="panel">
         <h3>Soliton</h3>
         <div class="pickrow">
-          <select id="soliton" title="Pick which of CARL's 48 training solitons to steer"></select>
+          <select id="soliton" title="Pick which update rule's soliton to steer"></select>
           <button id="shuffle" title="Pick a random soliton">🎲</button>
         </div>
       </div>
@@ -225,6 +225,10 @@ const CFG = {
   massDeathFraction: 0.3,      // soliton counts as "dead" below this fraction of its spawn mass
   modelUrl: 'models/agent_direction.onnx',
   solitonsUrl: 'models/solitons_direction.json',
+  // Only rule-idx 40 and 41 from the RLCA training data_dir (sorted glob order over
+  // data/solitons_R18/*.npz) -- these are the two update rules the maze agent is
+  // actually evaluated on, per scripts/interactive_maze_agent_demo.py --rule-idx.
+  allowedRuleNames: ['rule73_mu0.2250_s0.0250_R18', 'rule74_mu0.2300_s0.0350_R18'],
 };
 const MA = CFG.actionValue[0]; // action magnitude (0.3)
 
@@ -788,6 +792,7 @@ async function loadSolitonBank(){
     const res=await fetch(CFG.solitonsUrl);
     if(res.ok) raw=await res.json();
   }catch(e){ /* offline / file:// */ }
+  if(raw) raw=raw.filter(e=>CFG.allowedRuleNames.includes(e.name));
   if(!raw || !raw.length) raw=[FALLBACK_SOLITON];
   bank=raw.filter(e=>Math.max(e.h,e.w)<=80).map(e=>({
     name:e.name, mu:e.mu, sigma:e.sigma, betas:e.betas, h:e.h, w:e.w,
