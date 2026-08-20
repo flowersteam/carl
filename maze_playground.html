@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script>try{if(localStorage.getItem('carl-theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>CARL Maze Demo</title>
+<meta name="description" content="Steer a CARL soliton through a maze in real time. Click where you want it to go (or use arrow keys) and the trained direction-steering agent works out the low-level interventions -- exactly the human-in-the-loop setup from the paper's third experiment.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- ONNX Runtime Web: the trained net runs client-side (WASM / WebGPU) on the user's hardware -->
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.webgpu.min.js"></script>
+<style>
+  :root{
+    --bg:#f6f3f7;--raised:#ffffff;--screen:#161019;--line:#e6dfe9;--line2:#d9cee0;
+    --ink:#241a2c;--muted:#6a5c76;--faint:#8f8298;--m4:#b85527;--accent:#c96a34;--accent2:#c02955;
+    --good:#1f8f52;--ramp:linear-gradient(90deg,#3b0f70,#8c2981,#de4968,#fe9f6d,#fcfdbf);
+    --glowA:rgba(222,73,104,.07);--glowB:rgba(59,15,112,.06);--shadow:0 20px 60px -30px rgba(60,20,40,.18);
+    --target:#3399ff;--current:#ff9900;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0b0710;--raised:#150c20;--screen:#070409;--line:#2a1d3a;--line2:#3b2a4d;
+    --ink:#ece6f3;--muted:#a195b4;--faint:#6c5f80;--m4:#fe9f6d;--accent:#fca96b;--accent2:#de4968;
+    --good:#53b979;--ramp:linear-gradient(90deg,#3b0f70,#8c2981,#de4968,#fe9f6d,#fcfdbf);
+    --glowA:rgba(222,73,104,.10);--glowB:rgba(59,15,112,.28);--shadow:0 30px 90px -40px rgba(222,73,104,.4);
+    --target:#5eb0ff;--current:#ffb84d;
+  }
+  *{box-sizing:border-box}
+  html{scrollbar-gutter:stable;background:var(--bg)}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Inter",system-ui,sans-serif;
+       -webkit-font-smoothing:antialiased;line-height:1.5}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(60% 50% at 82% 4%,var(--glowA),transparent 60%),
+               radial-gradient(55% 45% at 6% 96%,var(--glowB),transparent 60%)}
+  .wrap{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:18px 22px 16px}
+  .eyebrow{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.2em;
+           text-transform:uppercase;color:var(--faint)}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .theme-toggle{width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;
+    font-size:14px;line-height:1;color:var(--muted);flex:0 0 auto}
+  h1{font-family:"Fraunces",serif;font-weight:600;font-size:clamp(22px,3vw,30px);margin:4px 0 0;letter-spacing:-.01em}
+  h1 em{font-style:italic;font-weight:500;color:var(--m4)}
+  .sub{color:var(--muted);max-width:92ch;margin:7px 0 6px;font-size:14px;line-height:1.5}
+  a{color:var(--accent)}
+  .status{font-family:"IBM Plex Mono",monospace;font-size:11px;display:flex;align-items:center;gap:7px;
+    color:var(--muted);margin:0 0 14px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:0 0 auto}
+  .dot.load{background:var(--m4);animation:pulse 1s infinite}
+  .dot.ready{background:var(--good)}
+  .dot.err{background:var(--accent2)}
+  @keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
+
+  .stage{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,520px);gap:18px;align-items:start}
+  @media(max-width:860px){.stage{grid-template-columns:1fr}}
+  .controls{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-content:start}
+  @media(max-width:560px){.controls{grid-template-columns:1fr}}
+
+  /* canvas screen */
+  .screen-wrap{background:var(--raised);border:1px solid var(--line);border-radius:14px;padding:12px;
+    box-shadow:var(--shadow)}
+  .canvas-box{position:relative;background:var(--screen);border-radius:10px;overflow:hidden;
+    aspect-ratio:1;width:min(100%,50vh);margin:0 auto;display:flex;align-items:center;justify-content:center}
+  #maze{width:100%;height:100%;image-rendering:pixelated;display:block;cursor:crosshair;touch-action:none}
+  #overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  .badge{position:absolute;top:9px;left:9px;font-family:"IBM Plex Mono",monospace;font-size:10.5px;
+    letter-spacing:.1em;text-transform:uppercase;padding:4px 9px;border-radius:7px;
+    background:rgba(11,7,16,.72);border:1px solid var(--line2);color:var(--m4);backdrop-filter:blur(4px)}
+  .badge.win{color:var(--good)}
+  .badge.dead{color:var(--accent2)}
+  .readout{display:flex;gap:12px;flex-wrap:nowrap;overflow:hidden;margin-top:10px;
+    font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+  .readout>span{flex:0 0 auto}
+  .readout b{color:var(--ink);font-weight:500}
+  .readout .k{color:var(--faint)}
+  .readout .ok{color:var(--good)}
+
+  .transport{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center}
+  button{font-family:"Inter",sans-serif;font-size:13px;font-weight:500;color:var(--ink);
+    background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:8px 12px;cursor:pointer;
+    transition:.14s}
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  button.on{background:var(--ramp);color:#1a0a14;border:none;font-weight:600}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .transport .reset-group{display:inline-flex;gap:6px;margin-left:auto;padding-left:10px;border-left:1px solid var(--line)}
+  @media(max-width:420px){.transport .reset-group{margin-left:0;padding-left:0;border-left:none}}
+
+  .playback{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-top:10px;
+    padding-top:10px;border-top:1px solid var(--line)}
+  .playback .mini{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);flex:1 1 130px}
+  .playback .mini span{white-space:nowrap}
+  .playback .mini input[type=range]{flex:1;min-width:60px}
+  .playback .mini b{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--accent);
+    min-width:38px;text-align:right;font-weight:500}
+
+  /* controls */
+  .panel{background:var(--raised);border:1px solid var(--line);border-radius:14px;padding:13px 14px}
+  .panel h3{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;
+    color:var(--m4);margin:0 0 10px;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .controls .panel{margin:0}
+  label.field{display:block;margin:0 0 10px}
+  label.field:last-child{margin-bottom:0}
+  label.field .row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
+  label.field .name{font-size:12.5px;color:var(--ink)}
+  label.field .val{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--accent)}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:3px;
+    background:var(--line2);outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;
+    background:var(--accent);cursor:pointer;box-shadow:0 0 8px rgba(252,169,107,.6)}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border:none;border-radius:50%;
+    background:var(--accent);cursor:pointer}
+  select{width:100%;font-family:"Inter",sans-serif;font-size:12.5px;color:var(--ink);
+    background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 9px}
+  .pickrow{display:flex;gap:8px}
+  .pickrow select{flex:1;min-width:0}
+  .pickrow button{flex:0 0 auto}
+  .tip{font-size:11.5px;color:var(--muted);margin:8px 0 0}
+
+  .compass-wrap{display:flex;justify-content:center;margin:2px 0 6px}
+  #compass{border-radius:50%;background:var(--bg);border:1px solid var(--line);cursor:crosshair}
+  .dirline{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--muted);text-align:center;margin:0 0 8px}
+  .legend{display:flex;gap:14px;justify-content:center;font-size:10.5px;color:var(--muted);margin:0 0 4px}
+  .legend span{display:inline-flex;align-items:center;gap:4px}
+  .legend i{width:9px;height:9px;border-radius:2px;display:inline-block}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <button id="theme-toggle" class="theme-toggle" title="Switch to dark mode" aria-label="Toggle dark mode">🌙</button>
+  </div>
+  <h1><b>CARL</b> Maze Demo</h1>
+  <p class="sub">The same trained soliton-steering agent from the direction task, reused unmodified as a real-time
+  interface: it never sees the maze, only the raw Lenia grid, exactly as in training. Walls simply erase any mass
+  that touches them. <b>Click the maze (or use arrow keys)</b> to set a target direction -- CARL handles the
+  low-level interventions to get there.</p>
+  <p class="status"><span class="dot load" id="status-dot"></span><span id="status-text">Loading CARL…</span></p>
+
+  <div class="stage">
+    <!-- LEFT: canvas + transport -->
+    <div class="screen-wrap">
+      <div class="canvas-box">
+        <canvas id="maze"></canvas>
+        <canvas id="overlay"></canvas>
+        <div class="badge" id="badge">Loading…</div>
+      </div>
+      <div class="readout">
+        <span><span class="k">dist</span> <b id="r-dist">–</b></span>
+        <span><span class="k">mass</span> <b id="r-mass">0</b></span>
+        <span><span class="k">step</span> <b id="r-step">0</b></span>
+        <span><span class="k">infer</span> <b id="r-ms">–</b></span>
+        <span><span class="k">rate</span> <b id="r-rate">–</b></span>
+        <span><span class="k">backend</span> <b id="r-backend">–</b></span>
+      </div>
+      <div class="transport">
+        <button id="play">Pause</button>
+        <button id="step1">Step</button>
+        <div class="reset-group">
+          <button id="respawn" title="Re-place the current soliton at the maze start">Respawn</button>
+          <button id="newmaze" title="Generate a new maze and respawn the soliton">New Maze</button>
+        </div>
+      </div>
+      <p class="tip">Click anywhere on the maze to aim CARL that way. Arrow keys / WASD also work. The blue dot is
+      the target; the white ring marks where you clicked.</p>
+      <div class="playback">
+        <label class="mini" title="Target simulation speed, in steps per second. Actual measured rate is shown in the readout above.">
+          <span>speed</span>
+          <input type="range" id="spd" min="1" max="120" step="1" value="15">
+          <b id="v-spd">15/s</b>
+        </label>
+      </div>
+    </div>
+
+    <!-- RIGHT: controls (2x2 grid) -->
+    <div class="controls">
+      <div class="panel">
+        <h3>Soliton</h3>
+        <div class="pickrow">
+          <select id="soliton" title="Pick which of CARL's 48 training solitons to steer"></select>
+          <button id="shuffle" title="Pick a random soliton">🎲</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Goal direction</h3>
+        <div class="compass-wrap"><canvas id="compass" width="108" height="108" title="Click to set the target direction"></canvas></div>
+        <div class="dirline" id="dirline">target (0.00, 1.00)</div>
+        <div class="legend">
+          <span><i style="background:var(--target)"></i>target</span>
+          <span><i style="background:var(--current)"></i>current</span>
+        </div>
+        <label class="field" style="margin:8px 0 0" title="Penalty per intervention CARL is told to expect. Higher cost makes it act more sparsely and steer less aggressively.">
+          <div class="row"><span class="name">action cost</span><span class="val" id="v-cost">0.50</span></div>
+          <input type="range" id="cost" min="0" max="10" step="0.1" value="0.5">
+        </label>
+      </div>
+
+      <div class="panel">
+        <h3>Maze</h3>
+        <label class="field" title="Simulation grid resolution. Larger boards give roomier mazes but run fewer steps/sec.">
+          <div class="row"><span class="name">board</span></div>
+          <select id="board">
+            <option value="100">100²</option>
+            <option value="140">140²</option>
+            <option value="168" selected>168²</option>
+            <option value="200">200²</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="panel">
+        <h3>About</h3>
+        <p class="tip" style="margin-top:0">CARL was trained only to hold a target mass and match a target
+        direction of travel -- never on mazes, never on goals that change mid-episode. The maze and the live
+        re-aiming are both unseen at test time; only the wall-collision rule and your clicks are new.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ====================================================================================
+//  CONFIG -- locked to the canonical direction run (models/meta_direction.json)
+// ====================================================================================
+const CFG = {
+  K: 4,                       // frame stack
+  R: 18,                      // kernel radius (fixed -- all 48 training solitons share it)
+  dt: 0.1,
+  actionValue: [0.3, -0.3, 0.0],  // add / remove / no-op (output channel order)
+  actionRadius: 7,
+  windowSize: 4,               // steps of CoM history kept for the "current direction" arrow
+  pinnedTime: 0.005,           // 50/10000 -- see meta_direction.json for why this is pinned
+  costMin: 0, costMax: 10,     // costMax extends 2x past the [0,5] training range
+  massDeathFraction: 0.3,      // soliton counts as "dead" below this fraction of its spawn mass
+  modelUrl: 'models/agent_direction.onnx',
+  solitonsUrl: 'models/solitons_direction.json',
+};
+const MA = CFG.actionValue[0]; // action magnitude (0.3)
+
+// Tiny inline fallback so the picker is never empty if the fetch below fails (e.g. file://).
+const FALLBACK_SOLITON = {name:"rule21 (fallback)", mu:0.24, sigma:0.024, betas:[1.0,0.5], h:24, w:25, state:
+  [[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0.091,0.536,0.567,0.503,0.153,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+   [0,0,0,0,0.283,0.693,0.775,0.891,0.998,1,0.996,0.818,0.462,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0.281,0.812,0.909,1,1,1,1,1,1,1,0.878,0.322,0,0,0,0,0,0,0,0,0,0],
+   [0,0,0,0.531,0.94,1,1,1,0.688,0.103,0,0,0.238,1,1,0.839,0,0,0,0,0,0,0,0,0],[0,0,0,0.438,1,1,1,0.889,0.173,0,0,0,0,0.25,0.684,1,1,0.155,0.151,0.172,0,0,0,0,0],
+   [0,0,0,0.275,1,1,1,0.787,0.205,0,0,0,0,0.161,0.435,1,1,1,0.761,0.678,0.341,0,0,0,0],[0,0,0,0.156,1,1,1,1,0.74,0.398,0,0,0.086,0.277,0.414,1,1,1,1,1,0.824,0,0,0,0],
+   [0,0,0,0.917,1,1,0.706,1,1,1,1,1,0.635,0.548,0.475,1,1,1,1,1,0.972,0.279,0,0,0],[0,0,0,0.878,1,0.504,0.36,0.437,1,1,0.71,0.715,1,1,1,0.896,0.76,1,1,1,0.943,0.543,0,0,0],
+   [0,0,0,0.868,0.696,0.284,0.114,0.194,1,0.793,0,0,0.701,1,1,0.297,0.187,0.562,1,1,0.909,0.558,0,0,0],[0,0,0,0.885,0.574,0.051,0,0,1,1,0,0.304,0.964,1,0.229,0,0,0.233,1,1,0.845,0.556,0,0,0],
+   [0,0,0,0.7,0.319,0,0,0,0.786,1,0.319,0.715,1,0.712,0,0,0,0.101,0.897,1,0.816,0.469,0,0,0],[0,0,0,0.42,0.084,0,0,0,0.163,0.752,1,1,0.427,0,0,0,0,0,0.539,1,0.782,0.342,0,0,0],
+   [0,0,0,0.147,0,0,0,0,0,0.114,0.594,0.309,0,0,0,0,0,0,0.088,0.744,0.744,0.222,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0.309,0.485,0.097,0,0,0],
+   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0.045,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]]};
+
+// ====================================================================================
+//  Grayscale ramp for the Lenia state (matches agent_playground.html)
+// ====================================================================================
+function buildLUT(stops){
+  const lut=new Uint8Array(256*3);
+  for(let i=0;i<256;i++){
+    const t=i/255*(stops.length-1), k=Math.min(stops.length-2,Math.floor(t)), f=t-k;
+    for(let c=0;c<3;c++) lut[i*3+c]=stops[k][c]+(stops[k+1][c]-stops[k][c])*f;
+  }
+  return lut;
+}
+const GRAY=buildLUT([[0,0,0],[255,255,255]]);
+const WALL_RGB=[61,52,42], TARGET_RGB=[51,153,255];
+
+// ====================================================================================
+//  Simulation state
+// ====================================================================================
+let H=168, W=168, N=H*W;
+let state=new Float32Array(N), conv=new Float32Array(N);
+let stack=[];
+let kdx,kdy,kw,knn, modW,modH;
+let mu=0.24, sig=0.024, betas=[1.0,0.5];
+let wall=new Uint8Array(N), targetBlob=new Float32Array(N);
+let maze={start:[0,0], target:[0,0], proximity:12};
+let dir=[0,1];                                // current target direction (dy,dx), unit length
+let comHistory=[[0,0],[0,0],[0,0],[0,0]];
+let lastCoM=null, lastDist=null, initialMass=0;
+let steps=0, actions=0, goalReached=false, solitonDead=false;
+let running=false, session=null, busy=false, lastMs=0, lastAction=null, lastQ=null;
+let bank=[], currentIndex=0;
+let sps=15, stepAcc=0, lastT=0, measSps=0, rateSteps=0, rateTime=0;
+const MAX_STEPS_PER_FRAME=6;
+
+const cv=document.getElementById('maze'), ctx=cv.getContext('2d');
+const ov=document.getElementById('overlay'), octx=ov.getContext('2d');
+const cp=document.getElementById('compass'), cctx=cp.getContext('2d');
+let img;
+const $=id=>document.getElementById(id);
+
+// ====================================================================================
+//  Kernel + step + action -- identical math to agent_playground.html / lenia.py
+// ====================================================================================
+function quad4(r){const q=4*r*(1-r);return q*q*q*q;}
+function buildKernel(){
+  const R=CFG.R, KS=2*R+1, grid=[]; let sum=0;
+  for(let iy=0;iy<KS;iy++){
+    grid.push([]);
+    const yy=-1+2*iy/(KS-1);
+    for(let ix=0;ix<KS;ix++){
+      const xx=-1+2*ix/(KS-1);
+      let r=Math.sqrt(xx*xx+yy*yy); if(r>1) r=0;
+      let v; const b=betas.length;
+      if(b>1){ const Br=b*r; let idx=Math.floor(Br); if(idx>b-1) idx=b-1; v=betas[idx]*quad4(Br%1); }
+      else v=betas[0]*quad4(r);
+      grid[iy].push(v); sum+=v;
+    }
+  }
+  if(sum<1e-6) sum=1;
+  const dxA=[],dyA=[],wA=[];
+  for(let iy=0;iy<KS;iy++)for(let ix=0;ix<KS;ix++){
+    const w=grid[iy][ix]/sum;
+    if(w>1e-7){ dyA.push(iy-R); dxA.push(ix-R); wA.push(w); }
+  }
+  kdx=Int32Array.from(dxA); kdy=Int32Array.from(dyA); kw=Float32Array.from(wA); knn=wA.length;
+}
+function allocGrid(){
+  const padW=W+40, padH=H+40;
+  modW=new Int32Array(W+2*padW); for(let i=0;i<modW.length;i++) modW[i]=((i-padW)%W+W)%W;
+  modH=new Int32Array(H+2*padH); for(let i=0;i<modH.length;i++) modH[i]=((i-padH)%H+H)%H;
+  modW.pad=padW; modH.pad=padH;
+  cv.width=W; cv.height=H; img=ctx.createImageData(W,H);
+}
+function stepSim(){
+  conv.fill(0);
+  const pw=modW.pad, ph=modH.pad;
+  for(let o=0;o<knn;o++){
+    const dx=kdx[o], dy=kdy[o], w=kw[o];
+    for(let y=0;y<H;y++){
+      const sy=modH[y+dy+ph], rowS=sy*W, rowO=y*W, base=pw+dx;
+      for(let x=0;x<W;x++) conv[rowO+x]+=w*state[rowS+modW[x+base]];
+    }
+  }
+  const inv=1/(2*sig*sig);
+  for(let i=0;i<N;i++){
+    const d=mu-conv[i];
+    const v=state[i]+(2*Math.exp(-(d*d)*inv)-1)*CFG.dt;
+    state[i]=v<0?0:(v>1?1:v);
+  }
+  steps++;
+}
+function applyAction(gx,gy,delta){
+  const Ra=CFG.actionRadius, r2=Ra*Ra;
+  for(let dy=-Ra;dy<=Ra;dy++)for(let dx=-Ra;dx<=Ra;dx++){
+    if(dx*dx+dy*dy>r2) continue;
+    const y=((gy+dy)%H+H)%H, x=((gx+dx)%W+W)%W, i=y*W+x;
+    const v=state[i]+delta; state[i]=v<0?0:(v>1?1:v);
+  }
+}
+function applyWallCollision(){
+  let lost=0;
+  for(let i=0;i<N;i++) if(wall[i] && state[i]>0){ lost+=state[i]; state[i]=0; }
+  return lost;
+}
+function pushStack(){ stack.push(Float32Array.from(state)); if(stack.length>CFG.K) stack.shift(); }
+function fillStack(){ stack=[]; for(let i=0;i<CFG.K;i++) stack.push(Float32Array.from(state)); }
+function buildStateInput(){
+  const data=new Float32Array(CFG.K*N);
+  for(let k=0;k<CFG.K;k++) data.set(stack[k], k*N);
+  return data;
+}
+function buildContext(){
+  return Float32Array.from([
+    CFG.pinnedTime, dir[0], dir[1],
+    (actionCost-CFG.costMin)/(CFG.costMax-CFG.costMin),
+  ]);
+}
+
+// ====================================================================================
+//  Toroidal center of mass (circular mean -- matches lenia_env_time_velocity_v3.py)
+// ====================================================================================
+function computeCoM(){
+  let sinY=0,cosY=0,sinX=0,cosX=0,mass=0;
+  const twoPiH=2*Math.PI/H, twoPiW=2*Math.PI/W;
+  for(let y=0;y<H;y++){
+    const ay=y*twoPiH, sy=Math.sin(ay), cy=Math.cos(ay), row=y*W;
+    for(let x=0;x<W;x++){
+      const v=state[row+x]; if(v<=0) continue;
+      mass+=v; sinY+=v*sy; cosY+=v*cy;
+      const ax=x*twoPiW; sinX+=v*Math.sin(ax); cosX+=v*Math.cos(ax);
+    }
+  }
+  if(mass<1e-6) return null;
+  let my=Math.atan2(sinY,cosY)/twoPiH; if(my<0) my+=H;
+  let mx=Math.atan2(sinX,cosX)/twoPiW; if(mx<0) mx+=W;
+  return [my,mx,mass];
+}
+function toroidalDelta(ny,nx,oy,ox){
+  let dy=ny-oy, dx=nx-ox;
+  if(dy>H/2) dy-=H; else if(dy<-H/2) dy+=H;
+  if(dx>W/2) dx-=W; else if(dx<-W/2) dx+=W;
+  return [dy,dx];
+}
+
+// ====================================================================================
+//  Maze generation -- randomized-DFS spanning tree + loops, carved onto the pixel grid.
+//  Direct port of scripts/interactive_maze_agent_demo.py :: generate_maze_dfs
+// ====================================================================================
+function generateMaze(bh, bw, cw, ww){
+  const cellSize=cw+ww, border=Math.max(ww,10);
+  let cols=Math.floor((bw-2*border+ww)/cellSize), rows=Math.floor((bh-2*border+ww)/cellSize);
+  cols=Math.max(2,cols); rows=Math.max(2,rows);
+  const offY=Math.floor((bh-(rows*cellSize-ww))/2), offX=Math.floor((bw-(cols*cellSize-ww))/2);
+
+  const visited=Array.from({length:rows},()=>new Array(cols).fill(false));
+  const edges=Array.from({length:rows},()=>Array.from({length:cols},()=>new Set()));
+  const dirs4=[[-1,0],[1,0],[0,-1],[0,1]];
+  const dstack=[[0,0]]; visited[0][0]=true;
+  while(dstack.length){
+    const [r,c]=dstack[dstack.length-1];
+    const nbrs=[];
+    for(const [dr,dc] of dirs4){
+      const nr=r+dr,nc=c+dc;
+      if(nr>=0&&nr<rows&&nc>=0&&nc<cols&&!visited[nr][nc]) nbrs.push([nr,nc]);
+    }
+    if(nbrs.length){
+      const [nr,nc]=nbrs[(Math.random()*nbrs.length)|0];
+      edges[r][c].add(nr+','+nc); edges[nr][nc].add(r+','+c);
+      visited[nr][nc]=true; dstack.push([nr,nc]);
+    } else dstack.pop();
+  }
+  const numExtra=Math.max(1, Math.floor(rows*cols/5));
+  for(let i=0;i<numExtra;i++){
+    const r=(Math.random()*rows)|0, c=(Math.random()*cols)|0;
+    const dd=dirs4.slice().sort(()=>Math.random()-0.5);
+    for(const [dr,dc] of dd){
+      const nr=r+dr,nc=c+dc;
+      if(nr>=0&&nr<rows&&nc>=0&&nc<cols&&!edges[r][c].has(nr+','+nc)){
+        edges[r][c].add(nr+','+nc); edges[nr][nc].add(r+','+c); break;
+      }
+    }
+  }
+
+  const wallArr=new Uint8Array(bh*bw).fill(1);
+  const carve=(y0,x0,y1,x1)=>{
+    y0=Math.max(0,y0); x0=Math.max(0,x0); y1=Math.min(bh,y1); x1=Math.min(bw,x1);
+    for(let y=y0;y<y1;y++){ const row=y*bw; for(let x=x0;x<x1;x++) wallArr[row+x]=0; }
+  };
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    const top=offY+r*cellSize, left=offX+c*cellSize;
+    carve(top,left, top+cw, left+cw);
+  }
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    for(const key of edges[r][c]){
+      const [nr,nc]=key.split(',').map(Number);
+      if(nr*cols+nc<=r*cols+c) continue;
+      const top1=offY+r*cellSize, left1=offX+c*cellSize;
+      const top2=offY+nr*cellSize, left2=offX+nc*cellSize;
+      carve(Math.min(top1,top2), Math.min(left1,left2), Math.max(top1,top2)+cw, Math.max(left1,left2)+cw);
+    }
+  }
+
+  function bfsDist(sr,sc){
+    const dist=Array.from({length:rows},()=>new Array(cols).fill(-1));
+    dist[sr][sc]=0; const q=[[sr,sc]]; let qi=0;
+    while(qi<q.length){
+      const [r,c]=q[qi++];
+      for(const key of edges[r][c]){
+        const [nr,nc]=key.split(',').map(Number);
+        if(dist[nr][nc]===-1){ dist[nr][nc]=dist[r][c]+1; q.push([nr,nc]); }
+      }
+    }
+    return dist;
+  }
+  const cellCenter=(r,c)=>[offY+r*cellSize+((cw/2)|0), offX+c*cellSize+((cw/2)|0)];
+
+  const d0=bfsDist(0,0);
+  let far=[0,0], maxD=-1;
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++) if(d0[r][c]>maxD){maxD=d0[r][c]; far=[r,c];}
+  const d1=bfsDist(far[0],far[1]);
+  let end=[0,0], maxD2=-1;
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++) if(d1[r][c]>maxD2){maxD2=d1[r][c]; end=[r,c];}
+
+  return {wall:wallArr, start:cellCenter(far[0],far[1]), target:cellCenter(end[0],end[1])};
+}
+function buildTargetBlob(ty,tx,sigma){
+  const blob=new Float32Array(N), inv=1/(2*sigma*sigma);
+  for(let y=0;y<H;y++){
+    const dy=y-ty, row=y*W;
+    for(let x=0;x<W;x++){ const dx=x-tx; blob[row+x]=Math.exp(-(dy*dy+dx*dx)*inv); }
+  }
+  return blob;
+}
+function boardParams(size){
+  return { cw: Math.max(22, Math.round(size*0.12)), ww: Math.max(6, Math.round(size*0.045)) };
+}
+
+// ====================================================================================
+//  Soliton placement: exact 90deg rotation (no interpolation) + place its own center of
+//  mass at the maze start, then zero out anything that lands on a wall.
+// ====================================================================================
+function rotate90(src,h,w,k){
+  k=((k%4)+4)%4;
+  if(k===0) return {data:src.slice(), h, w};
+  if(k===2){
+    const out=new Float32Array(h*w);
+    for(let i=0;i<h*w;i++) out[h*w-1-i]=src[i];
+    return {data:out, h, w};
+  }
+  const nh=w, nw=h, out=new Float32Array(nh*nw);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const v=src[y*w+x]; if(v===0) continue;
+    let ny,nx;
+    if(k===1){ ny=x; nx=h-1-y; } else { ny=w-1-x; nx=y; }
+    out[ny*nw+nx]=v;
+  }
+  return {data:out, h:nh, w:nw};
+}
+function placeSoliton(entry){
+  mu=entry.mu; sig=entry.sigma; betas=entry.betas.slice(); buildKernel();
+
+  const k=(Math.random()*4)|0;
+  const rot=rotate90(entry.flat, entry.h, entry.w, k);
+  let sy=0,sx=0,sm=0;
+  for(let y=0;y<rot.h;y++)for(let x=0;x<rot.w;x++){
+    const v=rot.data[y*rot.w+x]; if(v>0){ sm+=v; sy+=v*y; sx+=v*x; }
+  }
+  const cy=sy/sm, cx=sx/sm;
+
+  state.fill(0);
+  const [tr,tc]=maze.start;
+  const oy=Math.round(tr-cy), ox=Math.round(tc-cx);
+  for(let y=0;y<rot.h;y++){
+    const gy=((oy+y)%H+H)%H, grow=gy*W;
+    for(let x=0;x<rot.w;x++){
+      const v=rot.data[y*rot.w+x]; if(v<=0) continue;
+      const gx=((ox+x)%W+W)%W;
+      state[grow+gx]=v;
+    }
+  }
+  applyWallCollision();
+
+  steps=0; actions=0; goalReached=false; solitonDead=false; lastAction=null; lastQ=null;
+  fillStack();
+  const com=computeCoM();
+  lastCoM=com; initialMass=com?com[2]:0;
+  comHistory=Array.from({length:CFG.windowSize}, ()=>com?[com[0],com[1]]:[tr,tc]);
+  if(com){
+    const [ddy,ddx]=toroidalDelta(com[0],com[1], maze.target[0],maze.target[1]);
+    lastDist=Math.hypot(ddy,ddx);
+    const [tdy,tdx]=toroidalDelta(maze.target[0],maze.target[1], com[0],com[1]);
+    const n=Math.hypot(tdy,tdx)||1; dir=[tdy/n, tdx/n];
+  }
+  render();
+}
+function newMaze(){
+  const size=+$('board').value;
+  const {cw,ww}=boardParams(size);
+  maze=generateMaze(H,W,cw,ww);
+  maze.proximity=cw*0.3;
+  wall=maze.wall;
+  targetBlob=buildTargetBlob(maze.target[0], maze.target[1], Math.max(3,size*0.02));
+  placeSoliton(bank[currentIndex]);
+}
+function setBoard(size){
+  H=W=size; N=H*W;
+  state=new Float32Array(N); conv=new Float32Array(N);
+  allocGrid();
+  newMaze();
+}
+function respawnCurrentSoliton(){ placeSoliton(bank[currentIndex]); }
+
+// ====================================================================================
+//  Agent step
+// ====================================================================================
+async function agentStep(){
+  if(!session) return;
+  const t0=performance.now();
+  const feeds={
+    state:   new ort.Tensor('float32', buildStateInput(), [1,CFG.K,H,W]),
+    context: new ort.Tensor('float32', buildContext(), [1,4]),
+  };
+  const out=await session.run(feeds);
+  const q=out.q.data;
+  lastMs=performance.now()-t0;
+  let best=0, bv=q[0];
+  for(let i=1;i<q.length;i++) if(q[i]>bv){ bv=q[i]; best=i; }
+  lastQ=q;
+  const at=Math.floor(best/N), pos=best%N, r=Math.floor(pos/W), c=pos%W;
+  const sign=Math.sign(CFG.actionValue[at]);
+  if(sign!==0){ applyAction(c,r,sign*MA); actions++; }
+  lastAction={r,c,sign};
+
+  stepSim();
+  applyWallCollision();
+  pushStack();
+
+  const com=computeCoM();
+  if(!com){
+    lastCoM=null;
+    if(!goalReached && !solitonDead){ solitonDead=true; running=false; }
+    return;
+  }
+  lastCoM=com;
+  comHistory.push([com[0],com[1]]); if(comHistory.length>CFG.windowSize) comHistory.shift();
+  const [ddy,ddx]=toroidalDelta(com[0],com[1], maze.target[0],maze.target[1]);
+  lastDist=Math.hypot(ddy,ddx);
+  if(!goalReached && !solitonDead){
+    if(lastDist<maze.proximity) goalReached=true;
+    else if(com[2]<CFG.massDeathFraction*initialMass) solitonDead=true;
+    if(goalReached||solitonDead) running=false;
+  }
+}
+
+// ====================================================================================
+//  Rendering
+// ====================================================================================
+function drawArrow(c,x0,y0,dx,dy,len,color){
+  const n=Math.hypot(dx,dy); if(n<1e-6) return;
+  const ux=dx/n, uy=dy/n, x1=x0+ux*len, y1=y0+uy*len;
+  c.strokeStyle=color; c.fillStyle=color; c.lineWidth=Math.max(2,len*0.07);
+  c.beginPath(); c.moveTo(x0,y0); c.lineTo(x1,y1); c.stroke();
+  const hs=len*0.24, ang=Math.atan2(uy,ux);
+  c.beginPath(); c.moveTo(x1,y1);
+  c.lineTo(x1-hs*Math.cos(ang-0.4), y1-hs*Math.sin(ang-0.4));
+  c.lineTo(x1-hs*Math.cos(ang+0.4), y1-hs*Math.sin(ang+0.4));
+  c.closePath(); c.fill();
+}
+function render(){
+  let mass=0;
+  for(let i=0;i<N;i++){
+    let r,g,b;
+    if(wall[i]){ r=WALL_RGB[0]; g=WALL_RGB[1]; b=WALL_RGB[2]; }
+    else{
+      const v=state[i]; mass+=v;
+      const gv=v<0?0:(v>1?255:(v*255)|0), l=gv*3;
+      const gr=GRAY[l], gg=GRAY[l+1], gb=GRAY[l+2];
+      const tb=targetBlob[i];
+      if(tb>0.02){ r=gr+(TARGET_RGB[0]-gr)*tb; g=gg+(TARGET_RGB[1]-gg)*tb; b=gb+(TARGET_RGB[2]-gb)*tb; }
+      else { r=gr; g=gg; b=gb; }
+    }
+    const o=i*4;
+    img.data[o]=r; img.data[o+1]=g; img.data[o+2]=b; img.data[o+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+
+  const r=cv.getBoundingClientRect();
+  if(ov.width!==Math.round(r.width)){ ov.width=Math.round(r.width)||W; ov.height=Math.round(r.height)||H; }
+  octx.clearRect(0,0,ov.width,ov.height);
+  const sc=ov.width/W;
+
+  if(lastCoM){
+    const cx=lastCoM[1]*sc, cy=lastCoM[0]*sc, alen=Math.max(H,W)*0.16*sc;
+    const cs=getComputedStyle(document.documentElement);
+    drawArrow(octx, cx,cy, dir[1],dir[0], alen, cs.getPropertyValue('--target').trim());
+    const old=comHistory[0];
+    const [vdy,vdx]=toroidalDelta(lastCoM[0],lastCoM[1], old[0],old[1]);
+    drawArrow(octx, cx,cy, vdx,vdy, alen, cs.getPropertyValue('--current').trim());
+  }
+  if(lastAction && lastAction.sign!==0){
+    const px=(lastAction.c+0.5)*sc, py=(lastAction.r+0.5)*sc;
+    octx.beginPath(); octx.arc(px,py,CFG.actionRadius*sc,0,7);
+    octx.strokeStyle=lastAction.sign>0?'rgba(83,185,121,.95)':'rgba(222,73,104,.95)';
+    octx.lineWidth=3; octx.stroke();
+  }
+
+  let badgeText, badgeClass='';
+  if(!session) badgeText='Loading model…';
+  else if(goalReached){ badgeText='🎯 Goal reached!'; badgeClass='win'; }
+  else if(solitonDead){ badgeText='💀 Soliton disintegrated'; badgeClass='dead'; }
+  else if(running) badgeText='CARL is steering';
+  else badgeText='Paused';
+  $('badge').textContent=badgeText;
+  $('badge').className='badge'+(badgeClass?(' '+badgeClass):'');
+
+  $('r-dist').textContent = lastDist!=null ? lastDist.toFixed(1) : '–';
+  $('r-dist').className = (lastDist!=null && lastDist<maze.proximity*1.5) ? 'ok' : '';
+  $('r-mass').textContent = lastCoM ? lastCoM[2].toFixed(0) : '0';
+  $('r-step').textContent = steps;
+  $('r-ms').textContent = lastMs?lastMs.toFixed(1)+'ms':'–';
+  $('r-rate').textContent = measSps?measSps.toFixed(0)+'/s':'–';
+
+  drawCompass();
+}
+function drawCompass(){
+  const w=cp.width, h=cp.height, cx=w/2, cy=h/2, R=Math.min(w,h)/2-8;
+  cctx.clearRect(0,0,w,h);
+  cctx.strokeStyle='rgba(150,140,160,.35)'; cctx.lineWidth=1;
+  cctx.beginPath(); cctx.arc(cx,cy,R,0,7); cctx.stroke();
+  cctx.beginPath(); cctx.moveTo(cx-R,cy); cctx.lineTo(cx+R,cy); cctx.moveTo(cx,cy-R); cctx.lineTo(cx,cy+R); cctx.stroke();
+  const cs=getComputedStyle(document.documentElement);
+  const targetCol=cs.getPropertyValue('--target').trim();
+  const currentCol=cs.getPropertyValue('--current').trim();
+  drawArrow(cctx, cx,cy, dir[1],dir[0], R*0.85, targetCol);
+  if(lastCoM){
+    const old=comHistory[0];
+    const [vdy,vdx]=toroidalDelta(lastCoM[0],lastCoM[1], old[0],old[1]);
+    const n=Math.hypot(vdy,vdx);
+    if(n>1e-6) drawArrow(cctx, cx,cy, vdx/n, vdy/n, R*0.85, currentCol);
+  }
+  $('dirline').textContent = `target (${dir[0].toFixed(2)}, ${dir[1].toFixed(2)})`;
+}
+
+// ====================================================================================
+//  Main loop (accumulator scheduler -- matches agent_playground.html)
+// ====================================================================================
+async function loop(){
+  if(!running) return;
+  if(!busy){
+    busy=true;
+    const now=performance.now();
+    if(!lastT) lastT=now;
+    let elapsed=(now-lastT)/1000; if(elapsed>0.25) elapsed=0.25;
+    lastT=now;
+    stepAcc+=elapsed*sps;
+    let want=Math.floor(stepAcc); stepAcc-=want;
+    const n=Math.min(want, MAX_STEPS_PER_FRAME);
+    try{
+      for(let k=0;k<n;k++){
+        if(goalReached||solitonDead){ running=false; break; }
+        await agentStep();
+      }
+    } finally { busy=false; }
+    rateSteps+=n; rateTime+=elapsed;
+    if(rateTime>=0.5){ measSps=rateSteps/rateTime; rateSteps=0; rateTime=0; }
+    if(n>0) render();
+  }
+  requestAnimationFrame(loop);
+}
+function setRunning(v){
+  running=v && !goalReached && !solitonDead;
+  $('play').textContent=running?'Pause':'Play';
+  $('play').classList.toggle('on',running);
+  if(running){ lastT=0; stepAcc=0; rateSteps=0; rateTime=0; loop(); }
+  else render();
+}
+
+// ====================================================================================
+//  Input: click-to-steer, compass, arrow keys, sliders/buttons/selects
+// ====================================================================================
+let actionCost=0.5;
+cv.addEventListener('click', e=>{
+  if(!lastCoM) return;
+  const r=cv.getBoundingClientRect();
+  const px=(e.clientX-r.left)/r.width*W, py=(e.clientY-r.top)/r.height*H;
+  const [ddy,ddx]=toroidalDelta(py,px, lastCoM[0],lastCoM[1]);
+  const n=Math.hypot(ddy,ddx); if(n<1e-6) return;
+  dir=[ddy/n, ddx/n];
+  render();
+});
+cp.addEventListener('click', e=>{
+  const r=cp.getBoundingClientRect();
+  const x=e.clientX-r.left-cp.width/2, y=e.clientY-r.top-cp.height/2;
+  const n=Math.hypot(x,y); if(n<3) return;
+  dir=[y/n, x/n];
+  render();
+});
+window.addEventListener('keydown', e=>{
+  const tag=document.activeElement && document.activeElement.tagName;
+  if(tag==='SELECT'||tag==='INPUT') return;
+  const map={ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1],
+             w:[-1,0],s:[1,0],a:[0,-1],d:[0,1]};
+  const v=map[e.key];
+  if(v){ dir=v.slice(); render(); e.preventDefault(); }
+});
+$('play').addEventListener('click', ()=>setRunning(!running));
+$('step1').addEventListener('click', async ()=>{ if(goalReached||solitonDead) return; await agentStep(); render(); });
+$('respawn').addEventListener('click', respawnCurrentSoliton);
+$('newmaze').addEventListener('click', newMaze);
+$('shuffle').addEventListener('click', ()=>{
+  currentIndex=(Math.random()*bank.length)|0;
+  $('soliton').value=currentIndex;
+  respawnCurrentSoliton();
+});
+$('soliton').addEventListener('change', e=>{ currentIndex=+e.target.value; respawnCurrentSoliton(); });
+$('board').addEventListener('change', e=>{ const was=running; setRunning(false); setBoard(+e.target.value); if(was) setRunning(true); });
+$('cost').addEventListener('input', e=>{ actionCost=+e.target.value; $('v-cost').textContent=actionCost.toFixed(2); });
+$('spd').addEventListener('input', e=>{ sps=+e.target.value; $('v-spd').textContent=sps+'/s'; });
+
+// ====================================================================================
+//  Theme
+// ====================================================================================
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  $('theme-toggle').textContent = t==='dark' ? '☀️' : '🌙';
+  $('theme-toggle').title = t==='dark' ? 'Switch to light mode' : 'Switch to dark mode';
+  try{ localStorage.setItem('carl-theme', t); }catch(e){}
+}
+function initTheme(){
+  applyTheme(document.documentElement.getAttribute('data-theme')==='dark' ? 'dark' : 'light');
+  $('theme-toggle').addEventListener('click', ()=>{
+    applyTheme(document.documentElement.getAttribute('data-theme')==='dark' ? 'light' : 'dark');
+    render();
+  });
+}
+
+// ====================================================================================
+//  Boot
+// ====================================================================================
+async function loadSolitonBank(){
+  let raw=null;
+  try{
+    const res=await fetch(CFG.solitonsUrl);
+    if(res.ok) raw=await res.json();
+  }catch(e){ /* offline / file:// */ }
+  if(!raw || !raw.length) raw=[FALLBACK_SOLITON];
+  bank=raw.filter(e=>Math.max(e.h,e.w)<=80).map(e=>({
+    name:e.name, mu:e.mu, sigma:e.sigma, betas:e.betas, h:e.h, w:e.w,
+    flat:Float32Array.from(e.state.flat()),
+  }));
+  const sel=$('soliton'); sel.innerHTML='';
+  bank.forEach((b,i)=>{
+    const o=document.createElement('option'); o.value=i;
+    o.textContent=`β=[${b.betas.join(',')}] · μ${b.mu.toFixed(3)} · σ${b.sigma.toFixed(3)}`;
+    sel.appendChild(o);
+  });
+  currentIndex=0; sel.value=0;
+  return bank.length>1 || raw!==undefined;
+}
+// Prefer whichever backend actually runs faster on THIS machine -- WebGPU's per-step
+// dispatch and GPU<->CPU transfer overhead can outweigh its compute advantage for a model
+// this small (single-sample, invoked many times a second), so "available" is not the same
+// as "faster". WASM is created first as the reliable baseline; if WebGPU is available too,
+// one warm inference is timed on each and the faster session wins. (Mirrors agent_playground.html.)
+async function loadModel(){
+  ort.env.wasm.wasmPaths='https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/';
+  ort.env.wasm.numThreads=1;
+
+  let wasmSession;
+  try{
+    wasmSession=await ort.InferenceSession.create(CFG.modelUrl,{executionProviders:['wasm']});
+  }catch(e){
+    console.error(e);
+    $('status-dot').className='dot err';
+    $('status-text').textContent='Model failed to load -- serve this page over http(s), e.g. `python3 -m http.server`.';
+    setRunning(false);
+    return;
+  }
+
+  let webgpuSession=null;
+  if(navigator.gpu){
+    // Hint WebGPU toward the discrete GPU on hybrid-graphics laptops (Optimus etc.) --
+    // without this it can silently pick the integrated adapter instead.
+    if(ort.env.webgpu) ort.env.webgpu.powerPreference='high-performance';
+    try{ webgpuSession=await ort.InferenceSession.create(CFG.modelUrl,{executionProviders:['webgpu']}); }
+    catch(e){ console.warn('WebGPU session unavailable, staying on CPU (wasm):',e); }
+  }
+
+  if(!webgpuSession){
+    session=wasmSession; $('r-backend').textContent='cpu';
+  } else {
+    // One throwaway run per session first (pays for shader compilation / JIT warmup so it
+    // doesn't pollute the comparison), then a few timed runs each, averaged.
+    const feeds={ state:new ort.Tensor('float32',buildStateInput(),[1,CFG.K,H,W]), context:new ort.Tensor('float32',buildContext(),[1,4]) };
+    const timeAvg=async(s,n=3)=>{
+      await s.run(feeds);
+      let total=0;
+      for(let i=0;i<n;i++){ const t0=performance.now(); await s.run(feeds); total+=performance.now()-t0; }
+      return total/n;
+    };
+    const wasmMs=await timeAvg(wasmSession), webgpuMs=await timeAvg(webgpuSession);
+    console.info(`backend benchmark (avg of 3) -- wasm: ${wasmMs.toFixed(1)}ms · webgpu: ${webgpuMs.toFixed(1)}ms`);
+    if(webgpuMs<wasmMs){ session=webgpuSession; wasmSession.release(); $('r-backend').textContent='gpu'; }
+    else{ session=wasmSession; webgpuSession.release(); $('r-backend').textContent='cpu'; }
+  }
+  $('status-dot').className='dot ready';
+  $('status-text').textContent='CARL loaded -- click the maze to steer';
+  render();
+}
+(async function init(){
+  initTheme();
+  await loadSolitonBank();
+  setBoard(168);
+  setRunning(true);
+  loadModel();
+})();
+</script>
+</body>
+</html>
