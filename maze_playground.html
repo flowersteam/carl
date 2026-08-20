@@ -476,7 +476,10 @@ function buildTargetBlob(ty,tx,sigma){
   return blob;
 }
 function boardParams(size){
-  return { cw: Math.max(22, Math.round(size*0.12)), ww: Math.max(6, Math.round(size*0.045)) };
+  // Fixed pixel widths, matching the reference desktop demo's defaults
+  // (scripts/interactive_maze_agent_demo.py --corridor-width 50 --wall-width 10),
+  // not scaled by board size.
+  return { cw: 50, ww: 10 };
 }
 
 // ====================================================================================
