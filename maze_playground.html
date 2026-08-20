@@ -40,17 +40,10 @@
   .topbar{display:flex;align-items:center;justify-content:space-between;gap:10px}
   .theme-toggle{width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;
     font-size:14px;line-height:1;color:var(--muted);flex:0 0 auto}
+  .backlink{font-size:12.5px;color:var(--muted)}
   h1{font-family:"Fraunces",serif;font-weight:600;font-size:clamp(22px,3vw,30px);margin:4px 0 0;letter-spacing:-.01em}
   h1 em{font-style:italic;font-weight:500;color:var(--m4)}
-  .sub{color:var(--muted);max-width:92ch;margin:7px 0 6px;font-size:14px;line-height:1.5}
   a{color:var(--accent)}
-  .status{font-family:"IBM Plex Mono",monospace;font-size:11px;display:flex;align-items:center;gap:7px;
-    color:var(--muted);margin:0 0 14px}
-  .dot{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:0 0 auto}
-  .dot.load{background:var(--m4);animation:pulse 1s infinite}
-  .dot.ready{background:var(--good)}
-  .dot.err{background:var(--accent2)}
-  @keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
 
   .stage{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,520px);gap:18px;align-items:start}
   @media(max-width:860px){.stage{grid-template-columns:1fr}}
@@ -129,14 +122,10 @@
 <body>
 <div class="wrap">
   <div class="topbar">
+    <a class="backlink" href="https://developmentalsystems.org/carl/">&larr; CARL</a>
     <button id="theme-toggle" class="theme-toggle" title="Switch to dark mode" aria-label="Toggle dark mode">🌙</button>
   </div>
   <h1><b>CARL</b> Maze Demo</h1>
-  <p class="sub">The same trained soliton-steering agent from the direction task, reused unmodified as a real-time
-  interface: it never sees the maze, only the raw Lenia grid, exactly as in training. Walls simply erase any mass
-  that touches them. <b>Click the maze (or use arrow keys)</b> to set a target direction -- CARL handles the
-  low-level interventions to get there.</p>
-  <p class="status"><span class="dot load" id="status-dot"></span><span id="status-text">Loading CARL…</span></p>
 
   <div class="stage">
     <!-- LEFT: canvas + transport -->
@@ -162,7 +151,7 @@
           <button id="newmaze" title="Generate a new maze and respawn the soliton">New Maze</button>
         </div>
       </div>
-      <p class="tip">Click anywhere on the maze to aim CARL that way. Arrow keys / WASD also work. The blue dot is
+      <p class="tip" id="tip">Click anywhere on the maze to aim CARL that way. Arrow keys / WASD also work. The blue dot is
       the target; the white ring marks where you clicked.</p>
       <div class="playback">
         <label class="mini" title="Target simulation speed, in steps per second. Actual measured rate is shown in the readout above.">
@@ -827,8 +816,8 @@ async function loadModel(){
     wasmSession=await ort.InferenceSession.create(CFG.modelUrl,{executionProviders:['wasm']});
   }catch(e){
     console.error(e);
-    $('status-dot').className='dot err';
-    $('status-text').textContent='Model failed to load -- serve this page over http(s), e.g. `python3 -m http.server`.';
+    $('badge').textContent='Load failed'; $('badge').className='badge dead';
+    $('tip').innerHTML='Model failed to load — serve over http(s), not file://.';
     setRunning(false);
     return;
   }
@@ -859,8 +848,6 @@ async function loadModel(){
     if(webgpuMs<wasmMs){ session=webgpuSession; wasmSession.release(); $('r-backend').textContent='gpu'; }
     else{ session=wasmSession; webgpuSession.release(); $('r-backend').textContent='cpu'; }
   }
-  $('status-dot').className='dot ready';
-  $('status-text').textContent='CARL loaded -- click the maze to steer';
   render();
 }
 (async function init(){
