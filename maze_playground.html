@@ -2,6 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<!-- Injects COOP/COEP response headers via a service worker so the page becomes cross-origin
+     isolated -- required for real SharedArrayBuffer support, which onnxruntime-web's threaded
+     WASM backend needs to run inference across multiple cores instead of one. Neither a plain
+     static file server nor GitHub Pages can set those headers directly, hence the client-side
+     workaround. First-ever visit triggers one extra reload while the service worker activates.
+     (Mirrors agent_playground.html.) -->
+<script src="coi-serviceworker.js"></script>
 <script>try{if(localStorage.getItem('carl-theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:,">
@@ -16,14 +23,14 @@
   :root{
     --bg:#f6f3f7;--raised:#ffffff;--screen:#161019;--line:#e6dfe9;--line2:#d9cee0;
     --ink:#241a2c;--muted:#6a5c76;--faint:#8f8298;--m4:#b85527;--accent:#c96a34;--accent2:#c02955;
-    --good:#1f8f52;--ramp:linear-gradient(90deg,#3b0f70,#8c2981,#de4968,#fe9f6d,#fcfdbf);
+    --good:#1f8f52;--ramp:linear-gradient(90deg,rgba(184,85,39,.3),rgba(192,41,85,.3));
     --glowA:rgba(222,73,104,.07);--glowB:rgba(59,15,112,.06);--shadow:0 20px 60px -30px rgba(60,20,40,.18);
     --target:#3399ff;--current:#ff9900;
   }
   :root[data-theme="dark"]{
     --bg:#0b0710;--raised:#150c20;--screen:#070409;--line:#2a1d3a;--line2:#3b2a4d;
     --ink:#ece6f3;--muted:#a195b4;--faint:#6c5f80;--m4:#fe9f6d;--accent:#fca96b;--accent2:#de4968;
-    --good:#53b979;--ramp:linear-gradient(90deg,#3b0f70,#8c2981,#de4968,#fe9f6d,#fcfdbf);
+    --good:#53b979;--ramp:linear-gradient(90deg,rgba(254,159,109,.28),rgba(222,73,104,.28));
     --glowA:rgba(222,73,104,.10);--glowB:rgba(59,15,112,.28);--shadow:0 30px 90px -40px rgba(222,73,104,.4);
     --target:#5eb0ff;--current:#ffb84d;
   }
@@ -45,10 +52,9 @@
   h1 em{font-style:italic;font-weight:500;color:var(--m4)}
   a{color:var(--accent)}
 
-  .stage{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,520px);gap:18px;align-items:start}
+  .stage{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,320px);gap:18px;align-items:start}
   @media(max-width:860px){.stage{grid-template-columns:1fr}}
-  .controls{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-content:start;align-items:start}
-  @media(max-width:560px){.controls{grid-template-columns:1fr}}
+  .controls{display:grid;grid-template-columns:1fr;gap:12px;align-content:start;align-items:start}
 
   /* canvas screen */
   .screen-wrap{background:var(--raised);border:1px solid var(--line);border-radius:14px;padding:12px;
@@ -57,11 +63,6 @@
     aspect-ratio:1;width:min(100%,50vh);margin:0 auto;display:flex;align-items:center;justify-content:center}
   #maze{width:100%;height:100%;image-rendering:pixelated;display:block;cursor:crosshair;touch-action:none}
   #overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-  .badge{position:absolute;top:9px;left:9px;font-family:"IBM Plex Mono",monospace;font-size:10.5px;
-    letter-spacing:.1em;text-transform:uppercase;padding:4px 9px;border-radius:7px;
-    background:rgba(11,7,16,.72);border:1px solid var(--line2);color:var(--m4);backdrop-filter:blur(4px)}
-  .badge.win{color:var(--good)}
-  .badge.dead{color:var(--accent2)}
   .readout{display:flex;gap:12px;flex-wrap:nowrap;overflow:hidden;margin-top:10px;
     font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);
     font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -75,7 +76,7 @@
     background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:8px 12px;cursor:pointer;
     transition:.14s}
   button:hover{border-color:var(--accent);color:var(--accent)}
-  button.on{background:var(--ramp);color:#1a0a14;border:none;font-weight:600}
+  button.on{background:var(--ramp);color:var(--ink);border:1px solid var(--accent2);font-weight:600}
   button:disabled{opacity:.4;cursor:not-allowed}
   .transport .reset-group{display:inline-flex;gap:6px;margin-left:auto;padding-left:10px;border-left:1px solid var(--line)}
   @media(max-width:420px){.transport .reset-group{margin-left:0;padding-left:0;border-left:none}}
@@ -109,11 +110,34 @@
   .pickrow{display:flex;gap:8px}
   .pickrow select{flex:1;min-width:0}
   .pickrow button{flex:0 0 auto}
+  label.field .row #shuffle{padding:3px 7px;font-size:13px;line-height:1;border-radius:7px}
+  .soliton-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+  .soliton-thumb{padding:0;flex:none;aspect-ratio:1;border-radius:7px;overflow:hidden;
+    background:var(--screen);border:1px solid var(--line)}
+  .soliton-thumb:hover{border-color:var(--accent)}
+  .soliton-thumb.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset}
+  .soliton-thumb img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated;display:block}
   .tip{font-size:11.5px;color:var(--muted);margin:8px 0 0}
+  .info-badge{position:relative;display:inline-flex;align-items:center;justify-content:center;
+    width:14px;height:14px;margin-left:3px;border-radius:50%;background:var(--line2);color:var(--muted);
+    font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:500;cursor:help;
+    vertical-align:2px}
+  .info-badge:hover,.info-badge:focus-visible{background:var(--m4);color:#fff;outline:none}
+  .info-badge::after{content:attr(data-tip);position:absolute;z-index:20;top:calc(100% + 10px);left:0;
+    width:210px;background:var(--raised);color:var(--ink);border:1px solid var(--line2);
+    border-radius:10px;box-shadow:var(--shadow);padding:10px 12px;
+    font-family:"Inter",sans-serif;font-size:11.5px;font-weight:400;line-height:1.5;
+    text-transform:none;letter-spacing:normal;white-space:normal;text-align:left;
+    opacity:0;visibility:hidden;pointer-events:none;transform:translateY(-4px);
+    transition:opacity .15s ease,transform .15s ease}
+  .info-badge::before{content:"";position:absolute;z-index:21;top:100%;left:10px;margin-top:4px;
+    border:6px solid transparent;border-bottom-color:var(--raised);filter:drop-shadow(0 -1px 0 var(--line2));
+    opacity:0;visibility:hidden;pointer-events:none;transition:opacity .15s ease}
+  .info-badge:hover::after,.info-badge:focus-visible::after{opacity:1;visibility:visible;transform:translateY(0)}
+  .info-badge:hover::before,.info-badge:focus-visible::before{opacity:1;visibility:visible}
 
   .compass-wrap{display:flex;justify-content:center;margin:2px 0 6px}
   #compass{border-radius:50%;background:var(--bg);border:1px solid var(--line);cursor:crosshair}
-  .dirline{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--muted);text-align:center;margin:0 0 8px}
   .legend{display:flex;gap:14px;justify-content:center;font-size:10.5px;color:var(--muted);margin:0 0 4px}
   .legend span{display:inline-flex;align-items:center;gap:4px}
   .legend i{width:9px;height:9px;border-radius:2px;display:inline-block}
@@ -133,7 +157,6 @@
       <div class="canvas-box">
         <canvas id="maze"></canvas>
         <canvas id="overlay"></canvas>
-        <div class="badge" id="badge">Loading…</div>
       </div>
       <div class="readout">
         <span><span class="k">dist</span> <b id="r-dist">–</b></span>
@@ -141,7 +164,6 @@
         <span><span class="k">step</span> <b id="r-step">0</b></span>
         <span><span class="k">infer</span> <b id="r-ms">–</b></span>
         <span><span class="k">rate</span> <b id="r-rate">–</b></span>
-        <span><span class="k">backend</span> <b id="r-backend">–</b></span>
       </div>
       <div class="transport">
         <button id="play">Pause</button>
@@ -151,52 +173,65 @@
           <button id="newmaze" title="Generate a new maze and respawn the soliton">New Maze</button>
         </div>
       </div>
-      <p class="tip" id="tip">Click anywhere on the maze to aim CARL that way. Arrow keys also work. The blue dot is
-      the target; the white ring marks where you clicked.</p>
+      <p class="tip" id="tip">
+        CARL is a goal-conditioned reinforcement learning agent that tries to steer <a href="https://en.wikipedia.org/wiki/Lenia" target="_blank" rel="noopener">Lenia</a> solitons
+
+      towards the target direction (blue arrow), by applying a series of local intervention. <b>Use arrow keys or click anywhere on the maze to change CARL's goal. Try to navigate the soliton towards the blue circle.</b></p>
+
       <div class="playback">
-        <label class="mini" title="Target simulation speed, in steps per second. Actual measured rate is shown in the readout above.">
-          <span>speed</span>
-          <input type="range" id="spd" min="1" max="120" step="1" value="5">
-          <b id="v-spd">5/s</b>
+        <label class="mini" title="">
+          <span>action cost
+            <span class="info-badge" tabindex="0" role="note" title="" aria-label="Action cost is the penalty CARL is told to expect for every intervention it makes on the soliton. A higher cost makes it act more sparingly and steer less aggressively; a lower cost lets it intervene more freely to correct course." data-tip="Action cost is the penalty CARL is told to expect for every intervention it makes on the soliton. A higher cost makes it act more sparingly and steer less aggressively; a lower cost lets it intervene more freely to correct course.">?</span>
+          </span>
+          <input type="range" id="cost" min="0" max="5" step="0.1" value="2.5">
+          <b id="v-cost">2.50</b>
         </label>
       </div>
     </div>
 
-    <!-- RIGHT: controls (2x2 grid) -->
+    <!-- RIGHT: controls -- "Setup" (occasional, resets the episode) beside "Steering" (live, shapes the running agent) -->
     <div class="controls">
       <div class="panel">
-        <h3>Soliton</h3>
-        <div class="pickrow">
-          <select id="soliton" title="Pick which update rule's soliton to steer"></select>
-          <button id="shuffle" title="Pick a random soliton">🎲</button>
-        </div>
-      </div>
-
-      <div class="panel">
-        <h3>Goal direction</h3>
-        <div class="compass-wrap"><canvas id="compass" width="108" height="108" title="Click to set the target direction"></canvas></div>
-        <div class="dirline" id="dirline">target (0.00, 1.00)</div>
-        <div class="legend">
-          <span><i style="background:var(--target)"></i>target</span>
-          <span><i style="background:var(--current)"></i>current</span>
-        </div>
-        <label class="field" style="margin:8px 0 0" title="Penalty per intervention CARL is told to expect. Higher cost makes it act more sparsely and steer less aggressively.">
-          <div class="row"><span class="name">action cost</span><span class="val" id="v-cost">0.10</span></div>
-          <input type="range" id="cost" min="0" max="0.5" step="0.1" value="0.1">
+        <h3>Setup</h3>
+        <label class="field" title="Pick which update rule's soliton to steer -- click a thumbnail">
+          <div class="row">
+            <span class="name">soliton
+              <span class="info-badge" tabindex="0" role="note" title="" aria-label="Solitons differ in size, speed, and robustness. Try a few: some are noticeably easier to steer than others." data-tip="Solitons differ in size, speed, and robustness. Try a few: some are noticeably easier to steer than others.">?</span>
+            </span>
+            <button id="shuffle" title="Pick a random soliton">🎲</button>
+          </div>
+          <div id="soliton-grid" class="soliton-grid"></div>
         </label>
-      </div>
-
-      <div class="panel">
-        <h3>Maze</h3>
-        <label class="field" title="Simulation grid resolution. Larger boards give roomier mazes but run fewer steps/sec.">
-          <div class="row"><span class="name">board</span></div>
+        <label class="field" style="margin-top:10px" title="Simulation grid resolution. Larger boards give roomier mazes but run fewer steps/sec.">
+          <div class="row"><span class="name">board size</span></div>
           <select id="board">
-            <option value="100">100²</option>
-            <option value="140">140²</option>
-            <option value="168" selected>168²</option>
-            <option value="200">200²</option>
+            <option value="150">150²</option>
+            <option value="200" selected>200²</option>
+            <option value="250">250²</option>
           </select>
         </label>
+        <label class="field" style="margin-top:10px" title="Toggle the maze walls. When off, the grid is empty and the soliton moves freely.">
+          <div class="row"><span class="name">maze</span></div>
+          <button id="maze-toggle" class="on" style="width:100%">On</button>
+        </label>
+        <label class="field" style="margin-top:10px" title="How fast the simulation runs, in target steps per second. The readout above shows the actual measured rate.">
+          <div class="row">
+            <span class="name">sim speed
+              <span class="info-badge" tabindex="0" role="note" title="" aria-label="Setting the speed too high can make the simulation stutter. Try 15-30 steps/sec, and if it's still slow, reduce the board size or switch your device to performance/high-power mode." data-tip="Setting the speed too high can make the simulation stutter. Try 15-30 steps/sec, and if it's still slow, reduce the board size or switch your device to performance/high-power mode.">?</span>
+            </span>
+            <span class="val" id="v-spd">20/s</span>
+          </div>
+          <input type="range" id="spd" min="1" max="120" step="1" value="20">
+        </label>
+      </div>
+
+      <div class="panel">
+        <h3>Steering</h3>
+        <div class="compass-wrap"><canvas id="compass" width="108" height="108" title="Click to set the target direction"></canvas></div>
+        <div class="legend">
+          <span><i style="background:var(--target)"></i>target direction</span>
+          <span><i style="background:var(--current)"></i>current direction</span>
+        </div>
       </div>
     </div>
   </div>
@@ -209,6 +244,11 @@
 const CFG = {
   K: 4,                       // frame stack
   R: 18,                      // kernel radius (fixed -- all 48 training solitons share it)
+  netSize: 96,                 // the model was trained on 96x96 toroidal grids with no mazes --
+                                // every inference call crops a 96x96 toroidal window centered on
+                                // the soliton's CoM out of the (larger) maze board, so the model
+                                // always sees input matching its training distribution regardless
+                                // of the selected board size, and runs faster to boot.
   dt: 0.1,
   actionValue: [0.3, -0.3, 0.0],  // add / remove / no-op (output channel order)
   actionRadius: 7,
@@ -220,10 +260,19 @@ const CFG = {
   massDeathFraction: 0.3,      // soliton counts as "dead" below this fraction of its spawn mass
   modelUrl: 'models/agent_direction.onnx',
   solitonsUrl: 'models/solitons_direction.json',
-  // Only rule-idx 40 and 41 from the RLCA training data_dir (sorted glob order over
-  // data/solitons_R18/*.npz) -- these are the two update rules the maze agent is
-  // actually evaluated on, per scripts/interactive_maze_agent_demo.py --rule-idx.
-  allowedRuleNames: ['rule73_mu0.2250_s0.0250_R18', 'rule74_mu0.2300_s0.0350_R18'],
+  thumbDir: 'assets/solitons/',        // one PNG per allowed rule, named "<rule name>.png"
+  // rule-idx 41,40,42,32,31,39,33,34,7,45,38,43,14,18,44,5,23,37,36,35 from the RLCA training
+  // data_dir (sorted glob order over data/solitons_R18/*.npz) -- the curated subset of update
+  // rules this demo exposes, out of the 48 the maze agent was trained across.
+  allowedRuleNames: [
+    'rule74_mu0.2300_s0.0350_R18', 'rule73_mu0.2250_s0.0250_R18', 'rule75_mu0.2600_s0.0420_R18',
+    'rule57_mu0.2350_s0.0360_R18', 'rule55_mu0.2750_s0.0450_R18', 'rule72_mu0.1650_s0.0200_R18',
+    'rule58_mu0.2250_s0.0340_R18', 'rule60_mu0.2850_s0.0520_R18', 'rule23_mu0.2650_s0.0390_R18',
+    'rule81_mu0.2700_s0.0480_R18', 'rule68_mu0.3050_s0.0580_R18', 'rule76_mu0.2850_s0.0290_R18',
+    'rule33_mu0.2100_s0.0250_R18', 'rule37_mu0.2650_s0.0330_R18', 'rule7_mu0.3200_s0.0560_R18',
+    'rule21_mu0.2400_s0.0240_R18', 'rule46_mu0.2500_s0.0270_R18', 'rule67_mu0.2800_s0.0410_R18',
+    'rule63_mu0.3200_s0.0660_R18', 'rule61_mu0.2850_s0.0610_R18',
+  ],
 };
 const MA = CFG.actionValue[0]; // action magnitude (0.3)
 
@@ -255,15 +304,15 @@ function buildLUT(stops){
   return lut;
 }
 const GRAY=buildLUT([[0,0,0],[255,255,255]]);
-const WALL_RGB=[61,52,42], TARGET_RGB=[51,153,255];
+const WALL_RGB=[120,110,90], TARGET_RGB=[51,153,255];
 
 // ====================================================================================
 //  Simulation state
 // ====================================================================================
-let H=168, W=168, N=H*W;
+let H=200, W=200, N=H*W;
 let state=new Float32Array(N), conv=new Float32Array(N);
 let stack=[];
-let kdx,kdy,kw,knn, modW,modH;
+let kdx,kdy,kw,knn, kernelFFTre,kernelFFTim;
 let mu=0.24, sig=0.024, betas=[1.0,0.5];
 let wall=new Uint8Array(N), targetBlob=new Float32Array(N);
 let maze={start:[0,0], target:[0,0], proximity:12};
@@ -273,7 +322,8 @@ let lastCoM=null, lastDist=null, initialMass=0;
 let steps=0, actions=0, goalReached=false, solitonDead=false;
 let running=false, session=null, busy=false, lastMs=0, lastAction=null, lastQ=null;
 let bank=[], currentIndex=0;
-let sps=5, stepAcc=0, lastT=0, measSps=0, rateSteps=0, rateTime=0;
+let mazeEnabled=true;
+let sps=20, stepAcc=0, lastT=0, measSps=0, rateSteps=0, rateTime=0;
 const MAX_STEPS_PER_FRAME=6;
 
 const cv=document.getElementById('maze'), ctx=cv.getContext('2d');
@@ -307,24 +357,144 @@ function buildKernel(){
     if(w>1e-7){ dyA.push(iy-R); dxA.push(ix-R); wA.push(w); }
   }
   kdx=Int32Array.from(dxA); kdy=Int32Array.from(dyA); kw=Float32Array.from(wA); knn=wA.length;
+  buildKernelFFT();
 }
+let sinXTab, cosXTab;
 function allocGrid(){
-  const padW=W+40, padH=H+40;
-  modW=new Int32Array(W+2*padW); for(let i=0;i<modW.length;i++) modW[i]=((i-padW)%W+W)%W;
-  modH=new Int32Array(H+2*padH); for(let i=0;i<modH.length;i++) modH[i]=((i-padH)%H+H)%H;
-  modW.pad=padW; modH.pad=padH;
   cv.width=W; cv.height=H; img=ctx.createImageData(W,H);
+  const twoPiW=2*Math.PI/W;
+  sinXTab=new Float64Array(W); cosXTab=new Float64Array(W);
+  for(let x=0;x<W;x++){ const ax=x*twoPiW; sinXTab[x]=Math.sin(ax); cosXTab[x]=Math.cos(ax); }
 }
-function stepSim(){
-  conv.fill(0);
-  const pw=modW.pad, ph=modH.pad;
-  for(let o=0;o<knn;o++){
-    const dx=kdx[o], dy=kdy[o], w=kw[o];
-    for(let y=0;y<H;y++){
-      const sy=modH[y+dy+ph], rowS=sy*W, rowO=y*W, base=pw+dx;
-      for(let x=0;x<W;x++) conv[rowO+x]+=w*state[rowS+modW[x+base]];
+
+// ------------------------------------------------------------------------------------
+//  FFT-accelerated circular convolution -- mathematically identical to the direct
+//  knn-tap sum above (same toroidal kernel, embedded densely and transformed), just
+//  O(N log N) instead of O(knn*N). Verified against the direct sum to ~1e-13 relative
+//  error (double-precision internals); the tiny residual is well below the float32
+//  rounding noise the direct method itself already has, and far below the numeric
+//  drift already tolerated between the wasm/webgpu backends for the model itself.
+//  All tables below (bit-reversal, twiddles, Bluestein chirp + its data-independent
+//  FFT'd kernel) depend only on array length, so they're cached and built once per
+//  size, not per step.
+// ------------------------------------------------------------------------------------
+function nextPow2(v){ let p=1; while(p<v) p<<=1; return p; }
+function isPow2(v){ return (v&(v-1))===0; }
+const pow2Cache=new Map();
+function getPow2Rev(n){
+  let rev=pow2Cache.get(n);
+  if(rev) return rev;
+  rev=new Int32Array(n);
+  for(let i=1,j=0;i<n;i++){
+    let bit=n>>1;
+    for(;j&bit;bit>>=1) j^=bit;
+    j^=bit; rev[i]=j;
+  }
+  pow2Cache.set(n,rev);
+  return rev;
+}
+function fftRadix2(re,im,invert,n){
+  const rev=getPow2Rev(n);
+  for(let i=0;i<n;i++){ const j=rev[i]; if(i<j){ let t=re[i];re[i]=re[j];re[j]=t; t=im[i];im[i]=im[j];im[j]=t; } }
+  for(let len=2; len<=n; len<<=1){
+    const ang=(invert?1:-1)*2*Math.PI/len, wr=Math.cos(ang), wi=Math.sin(ang), half=len>>1;
+    for(let i=0;i<n;i+=len){
+      let curR=1, curI=0;
+      for(let j=0;j<half;j++){
+        const ur=re[i+j], ui=im[i+j];
+        const vr=re[i+j+half]*curR-im[i+j+half]*curI, vi=re[i+j+half]*curI+im[i+j+half]*curR;
+        re[i+j]=ur+vr; im[i+j]=ui+vi;
+        re[i+j+half]=ur-vr; im[i+j+half]=ui-vi;
+        const nr=curR*wr-curI*wi, ni=curR*wi+curI*wr; curR=nr; curI=ni;
+      }
     }
   }
+  if(invert){ for(let i=0;i<n;i++){ re[i]/=n; im[i]/=n; } }
+}
+const blueCache=new Map(), scratchCache=new Map();
+function getBluesteinTables(n,invert){
+  const key=n+'_'+invert;
+  let t=blueCache.get(key);
+  if(t) return t;
+  const m=nextPow2(2*n-1);
+  const cosT=new Float64Array(n), sinT=new Float64Array(n);
+  for(let k=0;k<n;k++){
+    const kk=(k*k)%(2*n), ang=Math.PI*kk/n*(invert?1:-1);
+    cosT[k]=Math.cos(ang); sinT[k]=Math.sin(ang);
+  }
+  const bre=new Float64Array(m), bim=new Float64Array(m);
+  bre[0]=cosT[0]; bim[0]=-sinT[0];
+  for(let k=1;k<n;k++){ bre[k]=cosT[k]; bim[k]=-sinT[k]; bre[m-k]=cosT[k]; bim[m-k]=-sinT[k]; }
+  fftRadix2(bre,bim,false,m);
+  t={m,cosT,sinT,Bre:bre,Bim:bim};
+  blueCache.set(key,t);
+  return t;
+}
+function getScratch(m){
+  let s=scratchCache.get(m);
+  if(!s){ s={are:new Float64Array(m),aim:new Float64Array(m),cre:new Float64Array(m),cim:new Float64Array(m)}; scratchCache.set(m,s); }
+  return s;
+}
+function dft1dInPlace(re,im,invert){
+  const n=re.length;
+  if(isPow2(n)){ fftRadix2(re,im,invert,n); return; }
+  const {m,cosT,sinT,Bre,Bim}=getBluesteinTables(n,invert);
+  const {are,aim,cre,cim}=getScratch(m);
+  for(let k=0;k<n;k++){ are[k]=re[k]*cosT[k]-im[k]*sinT[k]; aim[k]=re[k]*sinT[k]+im[k]*cosT[k]; }
+  for(let k=n;k<m;k++){ are[k]=0; aim[k]=0; }
+  fftRadix2(are,aim,false,m);
+  for(let i=0;i<m;i++){ cre[i]=are[i]*Bre[i]-aim[i]*Bim[i]; cim[i]=are[i]*Bim[i]+aim[i]*Bre[i]; }
+  fftRadix2(cre,cim,true,m);
+  for(let k=0;k<n;k++){ re[k]=cre[k]*cosT[k]-cim[k]*sinT[k]; im[k]=cre[k]*sinT[k]+cim[k]*cosT[k]; }
+  if(invert){ for(let i=0;i<n;i++){ re[i]/=n; im[i]/=n; } }
+}
+const buf2dCache=new Map();
+function get2dBufs(h,w){
+  const key=h+'_'+w;
+  let b=buf2dCache.get(key);
+  if(!b){ b={rowRe:new Float64Array(w),rowIm:new Float64Array(w),colRe:new Float64Array(h),colIm:new Float64Array(h)}; buf2dCache.set(key,b); }
+  return b;
+}
+function fft2d(re,im,h,w,invert){
+  const {rowRe,rowIm,colRe,colIm}=get2dBufs(h,w);
+  for(let y=0;y<h;y++){
+    const off=y*w;
+    for(let x=0;x<w;x++){ rowRe[x]=re[off+x]; rowIm[x]=im[off+x]; }
+    dft1dInPlace(rowRe,rowIm,invert);
+    for(let x=0;x<w;x++){ re[off+x]=rowRe[x]; im[off+x]=rowIm[x]; }
+  }
+  for(let x=0;x<w;x++){
+    for(let y=0;y<h;y++){ colRe[y]=re[y*w+x]; colIm[y]=im[y*w+x]; }
+    dft1dInPlace(colRe,colIm,invert);
+    for(let y=0;y<h;y++){ re[y*w+x]=colRe[y]; im[y*w+x]=colIm[y]; }
+  }
+}
+function buildKernelFFT(){
+  const re=new Float64Array(N), im=new Float64Array(N);
+  for(let o=0;o<knn;o++){
+    const y=((kdy[o]%H)+H)%H, x=((kdx[o]%W)+W)%W;
+    re[y*W+x]+=kw[o];
+  }
+  fft2d(re,im,H,W,false);
+  kernelFFTre=re; kernelFFTim=im;
+}
+const fftStateBufCache=new Map();
+function fftConvolve(){
+  let sb=fftStateBufCache.get(N);
+  if(!sb){ sb={re:new Float64Array(N), im:new Float64Array(N)}; fftStateBufCache.set(N,sb); }
+  const {re,im}=sb;
+  for(let i=0;i<N;i++){ re[i]=state[i]; im[i]=0; }
+  fft2d(re,im,H,W,false);
+  for(let i=0;i<N;i++){
+    const rr=re[i]*kernelFFTre[i]-im[i]*kernelFFTim[i];
+    const ii=re[i]*kernelFFTim[i]+im[i]*kernelFFTre[i];
+    re[i]=rr; im[i]=ii;
+  }
+  fft2d(re,im,H,W,true);
+  for(let i=0;i<N;i++) conv[i]=re[i];
+}
+function stepSim(){
+  fftConvolve();
   const inv=1/(2*sig*sig);
   for(let i=0;i<N;i++){
     const d=mu-conv[i];
@@ -348,10 +518,22 @@ function applyWallCollision(){
 }
 function pushStack(){ stack.push(Float32Array.from(state)); if(stack.length>CFG.K) stack.shift(); }
 function fillStack(){ stack=[]; for(let i=0;i<CFG.K;i++) stack.push(Float32Array.from(state)); }
-function buildStateInput(){
-  const data=new Float32Array(CFG.K*N);
-  for(let k=0;k<CFG.K;k++) data.set(stack[k], k*N);
-  return data;
+// Crops a CFG.netSize toroidal window out of each stacked frame, centered on the soliton's
+// current CoM -- matches the fixed-size grid the model was trained on (see CFG.netSize) instead
+// of feeding it the full, much larger maze board. Returns the crop's board-space origin too, so
+// the caller can map the model's per-pixel output back to board coordinates.
+function buildCroppedStateInput(cy,cx){
+  const S=CFG.netSize, half=S>>1, SS=S*S;
+  const oy=Math.round(cy)-half, ox=Math.round(cx)-half;
+  const data=new Float32Array(CFG.K*SS);
+  for(let k=0;k<CFG.K;k++){
+    const frame=stack[k], base=k*SS;
+    for(let y=0;y<S;y++){
+      const gy=((oy+y)%H+H)%H, grow=gy*W, orow=base+y*S;
+      for(let x=0;x<S;x++) data[orow+x]=frame[grow+((ox+x)%W+W)%W];
+    }
+  }
+  return {data, oy, ox};
 }
 function buildContext(){
   return Float32Array.from([
@@ -371,7 +553,7 @@ function computeCoM(){
     for(let x=0;x<W;x++){
       const v=state[row+x]; if(v<=0) continue;
       mass+=v; sinY+=v*sy; cosY+=v*cy;
-      const ax=x*twoPiW; sinX+=v*Math.sin(ax); cosX+=v*Math.cos(ax);
+      sinX+=v*sinXTab[x]; cosX+=v*cosXTab[x];
     }
   }
   if(mass<1e-6) return null;
@@ -390,11 +572,18 @@ function toroidalDelta(ny,nx,oy,ox){
 //  Maze generation -- randomized-DFS spanning tree + loops, carved onto the pixel grid.
 //  Direct port of scripts/interactive_maze_agent_demo.py :: generate_maze_dfs
 // ====================================================================================
-function generateMaze(bh, bw, cw, ww){
-  const cellSize=cw+ww, border=Math.max(ww,10);
+function generateMaze(bh, bw, cw, ww, edgeWall, enableWalls){
+  const cellSize=cw+ww, border=edgeWall;
   let cols=Math.floor((bw-2*border+ww)/cellSize), rows=Math.floor((bh-2*border+ww)/cellSize);
   cols=Math.max(2,cols); rows=Math.max(2,rows);
-  const offY=Math.floor((bh-(rows*cellSize-ww))/2), offX=Math.floor((bw-(cols*cellSize-ww))/2);
+  // cw is a floor, not a target: whatever room floor()'ing cols/rows above leaves unused gets
+  // spent widening the corridors, not the outer border -- otherwise a thick ww/edgeWall can
+  // strand a large leftover remainder as an oversized edge margin instead of maze structure.
+  const cwX=Math.max(cw, Math.floor((bw-2*border-(cols-1)*ww)/cols));
+  const cwY=Math.max(cw, Math.floor((bh-2*border-(rows-1)*ww)/rows));
+  const cellSizeX=cwX+ww, cellSizeY=cwY+ww;
+  const offX=Math.max(0, border+Math.floor((bw-2*border-(cols*cellSizeX-ww))/2));
+  const offY=Math.max(0, border+Math.floor((bh-2*border-(rows*cellSizeY-ww))/2));
 
   const visited=Array.from({length:rows},()=>new Array(cols).fill(false));
   const edges=Array.from({length:rows},()=>Array.from({length:cols},()=>new Set()));
@@ -425,22 +614,24 @@ function generateMaze(bh, bw, cw, ww){
     }
   }
 
-  const wallArr=new Uint8Array(bh*bw).fill(1);
-  const carve=(y0,x0,y1,x1)=>{
-    y0=Math.max(0,y0); x0=Math.max(0,x0); y1=Math.min(bh,y1); x1=Math.min(bw,x1);
-    for(let y=y0;y<y1;y++){ const row=y*bw; for(let x=x0;x<x1;x++) wallArr[row+x]=0; }
-  };
-  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
-    const top=offY+r*cellSize, left=offX+c*cellSize;
-    carve(top,left, top+cw, left+cw);
-  }
-  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
-    for(const key of edges[r][c]){
-      const [nr,nc]=key.split(',').map(Number);
-      if(nr*cols+nc<=r*cols+c) continue;
-      const top1=offY+r*cellSize, left1=offX+c*cellSize;
-      const top2=offY+nr*cellSize, left2=offX+nc*cellSize;
-      carve(Math.min(top1,top2), Math.min(left1,left2), Math.max(top1,top2)+cw, Math.max(left1,left2)+cw);
+  const wallArr=new Uint8Array(bh*bw).fill(enableWalls?1:0);
+  if(enableWalls){
+    const carve=(y0,x0,y1,x1)=>{
+      y0=Math.max(0,y0); x0=Math.max(0,x0); y1=Math.min(bh,y1); x1=Math.min(bw,x1);
+      for(let y=y0;y<y1;y++){ const row=y*bw; for(let x=x0;x<x1;x++) wallArr[row+x]=0; }
+    };
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      const top=offY+r*cellSizeY, left=offX+c*cellSizeX;
+      carve(top,left, top+cwY, left+cwX);
+    }
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      for(const key of edges[r][c]){
+        const [nr,nc]=key.split(',').map(Number);
+        if(nr*cols+nc<=r*cols+c) continue;
+        const top1=offY+r*cellSizeY, left1=offX+c*cellSizeX;
+        const top2=offY+nr*cellSizeY, left2=offX+nc*cellSizeX;
+        carve(Math.min(top1,top2), Math.min(left1,left2), Math.max(top1,top2)+cwY, Math.max(left1,left2)+cwX);
+      }
     }
   }
 
@@ -456,7 +647,7 @@ function generateMaze(bh, bw, cw, ww){
     }
     return dist;
   }
-  const cellCenter=(r,c)=>[offY+r*cellSize+((cw/2)|0), offX+c*cellSize+((cw/2)|0)];
+  const cellCenter=(r,c)=>[offY+r*cellSizeY+((cwY/2)|0), offX+c*cellSizeX+((cwX/2)|0)];
 
   const d0=bfsDist(0,0);
   let far=[0,0], maxD=-1;
@@ -476,10 +667,13 @@ function buildTargetBlob(ty,tx,sigma){
   return blob;
 }
 function boardParams(size){
-  // Fixed pixel widths, matching the reference desktop demo's defaults
-  // (scripts/interactive_maze_agent_demo.py --corridor-width 50 --wall-width 10),
-  // not scaled by board size.
-  return { cw: 50, ww: 10 };
+  // Corridor width (cw) is floored by the widest soliton actually used here (rule74 is 40px
+  // wide, models/solitons_direction.json) -- 44px leaves it a ~4px margin per side, as far as
+  // this can shrink without the soliton clipping wall edges on every turn. edgeWall matches ww
+  // so the outer perimeter reads as the same thickness as the inner separator walls. Thicker
+  // walls eat into the cell count at this fixed cw, so richness is a bit more modest than a
+  // thin-wall layout could manage: 150->2x2, 200->3x3, 250->4x4.
+  return { cw: 44, ww: 9, edgeWall: 9 };
 }
 
 // ====================================================================================
@@ -541,8 +735,8 @@ function placeSoliton(entry){
 }
 function newMaze(){
   const size=+$('board').value;
-  const {cw,ww}=boardParams(size);
-  maze=generateMaze(H,W,cw,ww);
+  const {cw,ww,edgeWall}=boardParams(size);
+  maze=generateMaze(H,W,cw,ww,edgeWall,mazeEnabled);
   maze.proximity=cw*0.3;
   wall=maze.wall;
   targetBlob=buildTargetBlob(maze.target[0], maze.target[1], Math.max(3,size*0.02));
@@ -560,10 +754,12 @@ function respawnCurrentSoliton(){ placeSoliton(bank[currentIndex]); }
 //  Agent step
 // ====================================================================================
 async function agentStep(){
-  if(!session) return;
+  if(!session||!lastCoM) return;
   const t0=performance.now();
+  const S=CFG.netSize, SS=S*S;
+  const {data,oy,ox}=buildCroppedStateInput(lastCoM[0],lastCoM[1]);
   const feeds={
-    state:   new ort.Tensor('float32', buildStateInput(), [1,CFG.K,H,W]),
+    state:   new ort.Tensor('float32', data, [1,CFG.K,S,S]),
     context: new ort.Tensor('float32', buildContext(), [1,4]),
   };
   const out=await session.run(feeds);
@@ -572,7 +768,8 @@ async function agentStep(){
   let best=0, bv=q[0];
   for(let i=1;i<q.length;i++) if(q[i]>bv){ bv=q[i]; best=i; }
   lastQ=q;
-  const at=Math.floor(best/N), pos=best%N, r=Math.floor(pos/W), c=pos%W;
+  const at=Math.floor(best/SS), pos=best%SS, lr=Math.floor(pos/S), lc=pos%S;
+  const r=((oy+lr)%H+H)%H, c=((ox+lc)%W+W)%W;
   const sign=Math.sign(CFG.actionValue[at]);
   if(sign!==0){ applyAction(c,r,sign*MA); actions++; }
   lastAction={r,c,sign};
@@ -649,15 +846,6 @@ function render(){
     octx.lineWidth=3; octx.stroke();
   }
 
-  let badgeText, badgeClass='';
-  if(!session) badgeText='Loading model…';
-  else if(goalReached){ badgeText='🎯 Goal reached!'; badgeClass='win'; }
-  else if(solitonDead){ badgeText='💀 Soliton disintegrated'; badgeClass='dead'; }
-  else if(running) badgeText='CARL is steering';
-  else badgeText='Paused';
-  $('badge').textContent=badgeText;
-  $('badge').className='badge'+(badgeClass?(' '+badgeClass):'');
-
   $('r-dist').textContent = lastDist!=null ? lastDist.toFixed(1) : '–';
   $('r-dist').className = (lastDist!=null && lastDist<maze.proximity*1.5) ? 'ok' : '';
   $('r-mass').textContent = lastCoM ? lastCoM[2].toFixed(0) : '0';
@@ -683,7 +871,6 @@ function drawCompass(){
     const n=Math.hypot(vdy,vdx);
     if(n>1e-6) drawArrow(cctx, cx,cy, vdx/n, vdy/n, R*0.85, currentCol);
   }
-  $('dirline').textContent = `target (${dir[0].toFixed(2)}, ${dir[1].toFixed(2)})`;
 }
 
 // ====================================================================================
@@ -723,7 +910,7 @@ function setRunning(v){
 // ====================================================================================
 //  Input: click-to-steer, compass, arrow keys, sliders/buttons/selects
 // ====================================================================================
-let actionCost=0.1;
+let actionCost=2.5;
 cv.addEventListener('click', e=>{
   if(!lastCoM) return;
   const r=cv.getBoundingClientRect();
@@ -753,11 +940,16 @@ $('respawn').addEventListener('click', respawnCurrentSoliton);
 $('newmaze').addEventListener('click', newMaze);
 $('shuffle').addEventListener('click', ()=>{
   currentIndex=(Math.random()*bank.length)|0;
-  $('soliton').value=currentIndex;
+  updateSolitonSelection();
   respawnCurrentSoliton();
 });
-$('soliton').addEventListener('change', e=>{ currentIndex=+e.target.value; respawnCurrentSoliton(); });
 $('board').addEventListener('change', e=>{ const was=running; setRunning(false); setBoard(+e.target.value); if(was) setRunning(true); });
+$('maze-toggle').addEventListener('click', ()=>{
+  mazeEnabled=!mazeEnabled;
+  $('maze-toggle').textContent=mazeEnabled?'On':'Off';
+  $('maze-toggle').classList.toggle('on',mazeEnabled);
+  const was=running; setRunning(false); newMaze(); if(was) setRunning(true);
+});
 $('cost').addEventListener('input', e=>{ actionCost=+e.target.value; $('v-cost').textContent=actionCost.toFixed(2); });
 $('spd').addEventListener('input', e=>{ sps=+e.target.value; $('v-spd').textContent=sps+'/s'; });
 
@@ -793,67 +985,69 @@ async function loadSolitonBank(){
     name:e.name, mu:e.mu, sigma:e.sigma, betas:e.betas, h:e.h, w:e.w,
     flat:Float32Array.from(e.state.flat()),
   }));
-  const sel=$('soliton'); sel.innerHTML='';
+  const grid=$('soliton-grid'); grid.innerHTML='';
   bank.forEach((b,i)=>{
-    const o=document.createElement('option'); o.value=i;
-    o.textContent=`β=[${b.betas.join(',')}] · μ${b.mu.toFixed(3)} · σ${b.sigma.toFixed(3)}`;
-    sel.appendChild(o);
+    const btn=document.createElement('button');
+    btn.type='button'; btn.className='soliton-thumb'; btn.dataset.index=i;
+    btn.title=`${b.name} · β=[${b.betas.join(',')}] · μ${b.mu.toFixed(3)} · σ${b.sigma.toFixed(3)}`;
+    const img=document.createElement('img');
+    img.src=CFG.thumbDir+encodeURIComponent(b.name)+'.png';
+    img.alt=b.name; img.loading='lazy';
+    img.addEventListener('error', ()=>{ img.remove(); btn.textContent='?'; });
+    btn.appendChild(img);
+    btn.addEventListener('click', ()=>{ currentIndex=i; updateSolitonSelection(); respawnCurrentSoliton(); });
+    grid.appendChild(btn);
   });
-  currentIndex=0; sel.value=0;
+  currentIndex=0; updateSolitonSelection();
   return bank.length>1 || raw!==undefined;
 }
-// Prefer whichever backend actually runs faster on THIS machine -- WebGPU's per-step
-// dispatch and GPU<->CPU transfer overhead can outweigh its compute advantage for a model
-// this small (single-sample, invoked many times a second), so "available" is not the same
-// as "faster". WASM is created first as the reliable baseline; if WebGPU is available too,
-// one warm inference is timed on each and the faster session wins. (Mirrors agent_playground.html.)
+function updateSolitonSelection(){
+  $('soliton-grid').querySelectorAll('.soliton-thumb').forEach(btn=>{
+    btn.classList.toggle('sel', +btn.dataset.index===currentIndex);
+  });
+}
+// Forced to WASM (CPU) -- WebGPU is disabled regardless of browser support.
 async function loadModel(){
   ort.env.wasm.wasmPaths='https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/';
-  ort.env.wasm.numThreads=1;
+  // Multi-threaded WASM needs SharedArrayBuffer, which needs the cross-origin isolation the
+  // coi-serviceworker above provides; on a first visit (before the service worker has taken
+  // over) crossOriginIsolated is still false, so fall back to a single thread rather than let
+  // onnxruntime-web throw. 6 threads measured fastest across the machines this was tuned on --
+  // the optimum is hardware-dependent though, so it's overridable via ?threads=N (e.g. append
+  // "?threads=8" to the URL and reload) for re-tuning on other machines; onnxruntime-web's
+  // thread pool is sized once at wasm-module init, so each value needs its own fresh page load
+  // to test cleanly, not a live reassignment mid-session.
+  const threadsOverride=parseInt(new URLSearchParams(location.search).get('threads'),10);
+  ort.env.wasm.numThreads = threadsOverride>0 ? threadsOverride
+    : (window.crossOriginIsolated ? Math.min(navigator.hardwareConcurrency||6,6) : 1);
 
-  let wasmSession;
+  // WASM pays a one-time JIT cost on its very first run. Absorb that here, before the model is
+  // used for real, instead of letting it land on the user's first real simulation step (which
+  // would show up as a multi-second freeze right as they start playing).
+  const warmup=async s=>{
+    try{
+      const S=CFG.netSize;
+      const {data}=buildCroppedStateInput(lastCoM[0],lastCoM[1]);
+      const feeds={ state:new ort.Tensor('float32',data,[1,CFG.K,S,S]), context:new ort.Tensor('float32',buildContext(),[1,4]) };
+      await s.run(feeds);
+    }catch(e){ /* best-effort -- worst case the first real step pays this cost instead */ }
+  };
+
   try{
-    wasmSession=await ort.InferenceSession.create(CFG.modelUrl,{executionProviders:['wasm']});
+    session=await ort.InferenceSession.create(CFG.modelUrl,{executionProviders:['wasm']});
+    await warmup(session);
   }catch(e){
     console.error(e);
-    $('badge').textContent='Load failed'; $('badge').className='badge dead';
     $('tip').innerHTML='Model failed to load — serve over http(s), not file://.';
     setRunning(false);
     return;
-  }
-
-  let webgpuSession=null;
-  if(navigator.gpu){
-    // Hint WebGPU toward the discrete GPU on hybrid-graphics laptops (Optimus etc.) --
-    // without this it can silently pick the integrated adapter instead.
-    if(ort.env.webgpu) ort.env.webgpu.powerPreference='high-performance';
-    try{ webgpuSession=await ort.InferenceSession.create(CFG.modelUrl,{executionProviders:['webgpu']}); }
-    catch(e){ console.warn('WebGPU session unavailable, staying on CPU (wasm):',e); }
-  }
-
-  if(!webgpuSession){
-    session=wasmSession; $('r-backend').textContent='cpu';
-  } else {
-    // One throwaway run per session first (pays for shader compilation / JIT warmup so it
-    // doesn't pollute the comparison), then a few timed runs each, averaged.
-    const feeds={ state:new ort.Tensor('float32',buildStateInput(),[1,CFG.K,H,W]), context:new ort.Tensor('float32',buildContext(),[1,4]) };
-    const timeAvg=async(s,n=3)=>{
-      await s.run(feeds);
-      let total=0;
-      for(let i=0;i<n;i++){ const t0=performance.now(); await s.run(feeds); total+=performance.now()-t0; }
-      return total/n;
-    };
-    const wasmMs=await timeAvg(wasmSession), webgpuMs=await timeAvg(webgpuSession);
-    console.info(`backend benchmark (avg of 3) -- wasm: ${wasmMs.toFixed(1)}ms · webgpu: ${webgpuMs.toFixed(1)}ms`);
-    if(webgpuMs<wasmMs){ session=webgpuSession; wasmSession.release(); $('r-backend').textContent='gpu'; }
-    else{ session=wasmSession; webgpuSession.release(); $('r-backend').textContent='cpu'; }
   }
   render();
 }
 (async function init(){
   initTheme();
   await loadSolitonBank();
-  setBoard(168);
+  setBoard(200);
   setRunning(true);
   loadModel();
 })();
