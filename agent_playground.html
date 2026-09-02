@@ -22,13 +22,15 @@
   :root{
     --bg:#f6f3f7;--raised:#ffffff;--screen:#161019;--line:#e6dfe9;--line2:#d9cee0;
     --ink:#241a2c;--muted:#6a5c76;--faint:#8f8298;--m4:#b85527;--accent:#c96a34;--accent2:#c02955;
-    --good:#1f8f52;--ramp:linear-gradient(90deg,#3b0f70,#8c2981,#de4968,#fe9f6d,#fcfdbf);
+    --good:#1f8f52;--ramp:linear-gradient(90deg,rgba(184,85,39,.3),rgba(192,41,85,.3));
+    --magma:linear-gradient(90deg,#3b0f70,#8c2981,#de4968,#fe9f6d,#fcfdbf);
     --glowA:rgba(222,73,104,.07);--glowB:rgba(59,15,112,.06);--shadow:0 20px 60px -30px rgba(60,20,40,.18);
   }
   :root[data-theme="dark"]{
     --bg:#0b0710;--raised:#150c20;--screen:#070409;--line:#2a1d3a;--line2:#3b2a4d;
     --ink:#ece6f3;--muted:#a195b4;--faint:#6c5f80;--m4:#fe9f6d;--accent:#fca96b;--accent2:#de4968;
-    --good:#53b979;--ramp:linear-gradient(90deg,#3b0f70,#8c2981,#de4968,#fe9f6d,#fcfdbf);
+    --good:#53b979;--ramp:linear-gradient(90deg,rgba(254,159,109,.28),rgba(222,73,104,.28));
+    --magma:linear-gradient(90deg,#3b0f70,#8c2981,#de4968,#fe9f6d,#fcfdbf);
     --glowA:rgba(222,73,104,.10);--glowB:rgba(59,15,112,.28);--shadow:0 30px 90px -40px rgba(222,73,104,.4);
   }
   *{box-sizing:border-box}
@@ -49,7 +51,6 @@
   .backlink{font-size:12.5px;color:var(--muted)}
   h1{font-family:"Fraunces",serif;font-weight:600;font-size:clamp(22px,3vw,30px);margin:4px 0 0;letter-spacing:-.01em}
   h1 em{font-style:italic;font-weight:500;color:var(--m4)}
-  .sub{color:var(--muted);max-width:92ch;margin:7px 0 15px;font-size:14px;line-height:1.5}
   a{color:var(--accent)}
 
   .stage{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,520px);gap:18px;align-items:start}
@@ -85,11 +86,12 @@
     background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:8px 12px;cursor:pointer;
     transition:.14s}
   button:hover{border-color:var(--accent);color:var(--accent)}
-  button.on{background:var(--ramp);color:#1a0a14;border:none;font-weight:600}
+  button.on{background:var(--ramp);color:var(--ink);border:1px solid var(--accent2);font-weight:600}
   button:disabled{opacity:.4;cursor:not-allowed}
   .seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
   .seg button{border:none;border-radius:0;border-right:1px solid var(--line)}
   .seg button:last-child{border-right:none}
+  .seg button.on{box-shadow:0 0 0 1px var(--accent2) inset}
   .transport .reset-group{display:inline-flex;gap:6px;margin-left:auto;padding-left:10px;border-left:1px solid var(--line)}
   @media(max-width:420px){.transport .reset-group{margin-left:0;padding-left:0;border-left:none}}
 
@@ -126,31 +128,11 @@
   .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .chk{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer}
   .chk input{accent-color:var(--accent);width:14px;height:14px}
-  .status{font-family:"IBM Plex Mono",monospace;font-size:11px;display:flex;align-items:center;gap:7px;color:var(--muted);text-transform:none;letter-spacing:0}
-  .dot{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:0 0 auto}
-  .dot.load{background:var(--m4);animation:pulse 1s infinite}
-  .dot.ready{background:var(--good)}
-  .dot.err{background:var(--accent2)}
-  @keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
   .tip{font-size:11.5px;color:var(--muted);margin:8px 0 0}
   .targetbar{height:5px;border-radius:4px;background:var(--line2);position:relative;margin-top:8px;overflow:hidden}
-  .targetbar .fill{position:absolute;left:0;top:0;bottom:0;background:var(--ramp);width:0%}
+  .targetbar .fill{position:absolute;left:0;top:0;bottom:0;background:var(--magma);width:0%}
   .targetbar .tick{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--good)}
 
-  /* about — self-contained explanation, collapsed by default */
-  details.about{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
-  details.about>summary{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.12em;
-    text-transform:uppercase;color:var(--accent);cursor:pointer;list-style:none}
-  details.about>summary::-webkit-details-marker{display:none}
-  details.about>summary::before{content:"▸  ";color:var(--faint)}
-  details.about[open]>summary::before{content:"▾  "}
-  details.about .body{margin-top:12px;font-size:12.5px;color:var(--muted);line-height:1.55;
-    display:grid;grid-template-columns:repeat(3,1fr);gap:14px 26px}
-  @media(max-width:860px){details.about .body{grid-template-columns:1fr 1fr}}
-  @media(max-width:600px){details.about .body{grid-template-columns:1fr}}
-  details.about h4{margin:0 0 3px;font-size:11px;color:var(--ink);font-family:"IBM Plex Mono",monospace;letter-spacing:.06em;text-transform:uppercase}
-  details.about code{font-family:"IBM Plex Mono",monospace;color:var(--accent);background:rgba(252,169,107,.08);
-    padding:1px 5px;border-radius:4px;font-size:.9em}
 </style>
 </head>
 <body>
@@ -277,6 +259,7 @@
           <div class="row"><span class="name">action magnitude M<sub>a</sub></span><span class="val" id="v-ma">0.30</span></div>
           <input type="range" id="ma" min="0.05" max="0.6" step="0.05" value="0.3">
         </label>
+        <label class="field" style="margin-bottom:0" title="Simulation grid resolution. The net is fully convolutional, so larger boards work -- they just run fewer steps/sec.">
           <div class="row"><span class="name">board size</span></div>
           <select id="board">
             <option value="64" selected>64²</option>
