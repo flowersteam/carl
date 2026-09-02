@@ -142,9 +142,6 @@
     color:#b39dff;text-shadow:0 0 5px rgba(0,0,0,.95),0 0 2px rgba(0,0,0,.95);pointer-events:none}
   .soliton-thumb.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset}
   .soliton-thumb img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated;display:block}
-  .grid-note{display:flex;gap:5px;align-items:baseline;margin:8px 1px 0;font-size:10px;
-    color:var(--muted);line-height:1.45}
-  .grid-note b{flex:none;color:var(--easy);font-size:15px;font-weight:400}
   .tip{font-size:11.5px;color:var(--muted);margin:8px 0 0}
   .info-badge{position:relative;display:inline-flex;align-items:center;justify-content:center;
     width:14px;height:14px;margin-left:3px;border-radius:50%;background:var(--line2);color:var(--muted);
@@ -253,7 +250,6 @@
             <button id="shuffle" title="Pick a random soliton">🎲</button>
           </div>
           <div id="soliton-grid" class="soliton-grid"></div>
-          <p class="grid-note"><b>★</b><span>Starred solitons are the easiest to control. The others can be less stable, or move more chaotically.</span></p>
         </label>
         <label class="field" style="margin-top:10px" title="Simulation grid resolution. Larger boards give roomier mazes but run fewer steps/sec.">
           <div class="row"><span class="name">board size</span></div>
