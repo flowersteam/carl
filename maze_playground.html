@@ -25,14 +25,14 @@
     --ink:#241a2c;--muted:#6a5c76;--faint:#8f8298;--m4:#b85527;--accent:#c96a34;--accent2:#c02955;
     --good:#1f8f52;--ramp:linear-gradient(90deg,rgba(184,85,39,.3),rgba(192,41,85,.3));
     --glowA:rgba(222,73,104,.07);--glowB:rgba(59,15,112,.06);--shadow:0 20px 60px -30px rgba(60,20,40,.18);
-    --target:#3399ff;--current:#ff9900;
+    --target:#3399ff;--current:#ff9900;--easy:#7c3aed;
   }
   :root[data-theme="dark"]{
     --bg:#0b0710;--raised:#150c20;--screen:#070409;--line:#2a1d3a;--line2:#3b2a4d;
     --ink:#ece6f3;--muted:#a195b4;--faint:#6c5f80;--m4:#fe9f6d;--accent:#fca96b;--accent2:#de4968;
     --good:#53b979;--ramp:linear-gradient(90deg,rgba(254,159,109,.28),rgba(222,73,104,.28));
     --glowA:rgba(222,73,104,.10);--glowB:rgba(59,15,112,.28);--shadow:0 30px 90px -40px rgba(222,73,104,.4);
-    --target:#5eb0ff;--current:#ffb84d;
+    --target:#5eb0ff;--current:#ffb84d;--easy:#b39dff;
   }
   *{box-sizing:border-box}
   html{scrollbar-gutter:stable;background:var(--bg)}
@@ -52,7 +52,7 @@
   h1 em{font-style:italic;font-weight:500;color:var(--m4)}
   a{color:var(--accent)}
 
-  .stage{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,320px);gap:18px;align-items:start}
+  .stage{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,336px);gap:18px;align-items:start}
   @media(max-width:860px){.stage{grid-template-columns:1fr}}
   .controls{display:grid;grid-template-columns:1fr;gap:12px;align-content:start;align-items:start}
 
@@ -62,8 +62,25 @@
   .canvas-box{position:relative;background:var(--screen);border-radius:10px;overflow:hidden;
     aspect-ratio:1;width:min(100%,50vh);margin:0 auto;display:flex;align-items:center;justify-content:center}
   #maze{width:100%;height:100%;image-rendering:pixelated;display:block;cursor:crosshair;touch-action:none}
+  #maze.paint{cursor:cell}
   #overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-  .readout{display:flex;gap:12px;flex-wrap:nowrap;overflow:hidden;margin-top:10px;
+  /* End-of-episode banner, laid over the bottom of the board. */
+  /* left+right+auto margins rather than left:50%+translate -- a shrink-to-fit absolute box
+     offset from the left only gets half the board to lay out in, which wraps the stats early. */
+  .result{position:absolute;left:8px;right:8px;bottom:10px;width:fit-content;margin:0 auto;
+    display:block;text-align:center;
+    padding:7px 13px;border-radius:10px;background:rgba(12,7,17,.86);color:#fff;
+    border:1px solid rgba(255,255,255,.16);box-shadow:0 6px 24px -10px rgba(0,0,0,.8);
+    font-family:"IBM Plex Mono",monospace;font-size:11px;line-height:1.4;
+    font-variant-numeric:tabular-nums;pointer-events:none}
+  .result[hidden]{display:none}
+  .result b{display:block;font-weight:600;white-space:nowrap;margin-bottom:1px}
+  .result .s{white-space:nowrap}   /* wrap between stats, never inside one */
+  .result.win{border-color:rgba(83,185,121,.75)}
+  .result.win b{color:#7fd6a1}
+  .result.lose{border-color:rgba(222,73,104,.7)}
+  .result.lose b{color:#f0879f}
+  .readout{display:flex;gap:4px 12px;flex-wrap:wrap;margin-top:10px;
     font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);
     font-variant-numeric:tabular-nums;white-space:nowrap}
   .readout>span{flex:0 0 auto}
@@ -81,13 +98,24 @@
   .transport .reset-group{display:inline-flex;gap:6px;margin-left:auto;padding-left:10px;border-left:1px solid var(--line)}
   @media(max-width:420px){.transport .reset-group{margin-left:0;padding-left:0;border-left:none}}
 
+  /* What a click on the board does: steer CARL, or edit the grid by hand with CARL's own action. */
+  .clickmode{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center}
+  .clickmode .name{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--faint)}
+  .clickmode button{padding:6px 10px;font-size:12px;display:inline-flex;align-items:center;gap:6px}
+  .clickmode i{flex:none;width:10px;height:10px;border-radius:50%;border:2px solid}
+  .clickmode i.add{border-color:rgb(83,185,121);background:rgba(83,185,121,.3)}
+  .clickmode i.rem{border-color:rgb(222,73,104);background:rgba(222,73,104,.3)}
+
   .playback{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-top:10px;
     padding-top:10px;border-top:1px solid var(--line)}
   .playback .mini{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);flex:1 1 130px}
   .playback .mini span{white-space:nowrap}
   .playback .mini input[type=range]{flex:1;min-width:60px}
   .playback .mini b{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--accent);
-    min-width:38px;text-align:right;font-weight:500}
+    min-width:46px;text-align:right;font-weight:500}   /* fits "10.00*" without nudging the slider */
+  /* past CFG.costMax the conditioning value leaves the range the agent was trained on */
+  .playback .mini b.ood{color:var(--accent2)}
+  .playback .mini b.ood::after{content:"*"}
 
   /* controls */
   .panel{background:var(--raised);border:1px solid var(--line);border-radius:14px;padding:13px 14px}
@@ -111,12 +139,21 @@
   .pickrow select{flex:1;min-width:0}
   .pickrow button{flex:0 0 auto}
   label.field .row #shuffle{padding:3px 7px;font-size:13px;line-height:1;border-radius:7px}
-  .soliton-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
-  .soliton-thumb{padding:0;flex:none;aspect-ratio:1;border-radius:7px;overflow:hidden;
+  .soliton-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+  .soliton-thumb{position:relative;padding:0;flex:none;aspect-ratio:1;border-radius:7px;overflow:hidden;
     background:var(--screen);border:1px solid var(--line)}
   .soliton-thumb:hover{border-color:var(--accent)}
+  /* First row -- the solitons that hold together best under steering. */
+  .soliton-thumb.easy{border-color:var(--easy);border-width:3px}
+  /* The tile behind the star is always dark (var(--screen)), so it uses a lighter tint of the
+     same hue than the border does in light mode. */
+  .soliton-thumb .star{position:absolute;top:-1px;right:2px;font-size:18px;line-height:1;
+    color:#b39dff;text-shadow:0 0 5px rgba(0,0,0,.95),0 0 2px rgba(0,0,0,.95);pointer-events:none}
   .soliton-thumb.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset}
   .soliton-thumb img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated;display:block}
+  .grid-note{display:flex;gap:5px;align-items:baseline;margin:8px 1px 0;font-size:10px;
+    color:var(--muted);line-height:1.45}
+  .grid-note b{flex:none;color:var(--easy);font-size:15px;font-weight:400}
   .tip{font-size:11.5px;color:var(--muted);margin:8px 0 0}
   .info-badge{position:relative;display:inline-flex;align-items:center;justify-content:center;
     width:14px;height:14px;margin-left:3px;border-radius:50%;background:var(--line2);color:var(--muted);
@@ -136,11 +173,16 @@
   .info-badge:hover::after,.info-badge:focus-visible::after{opacity:1;visibility:visible;transform:translateY(0)}
   .info-badge:hover::before,.info-badge:focus-visible::before{opacity:1;visibility:visible}
 
-  .compass-wrap{display:flex;justify-content:center;margin:2px 0 6px}
-  #compass{border-radius:50%;background:var(--bg);border:1px solid var(--line);cursor:crosshair}
-  .legend{display:flex;gap:14px;justify-content:center;font-size:10.5px;color:var(--muted);margin:0 0 4px}
-  .legend span{display:inline-flex;align-items:center;gap:4px}
-  .legend i{width:9px;height:9px;border-radius:2px;display:inline-block}
+  .board-legend{display:flex;flex-wrap:wrap;gap:5px 13px;justify-content:center;align-items:center;
+       font-size:10.5px;color:var(--muted);margin:10px 0 0;line-height:1.4}
+  .board-legend span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .board-legend i{flex:none;display:inline-block}
+  .board-legend i.disc{width:12px;height:12px;border-radius:50%;border:2px solid}
+  .board-legend i.disc.add{border-color:rgb(83,185,121);background:rgba(83,185,121,.3)}
+  .board-legend i.disc.rem{border-color:rgb(222,73,104);background:rgba(222,73,104,.3)}
+  .board-legend i.disc.you{border-style:dashed;border-color:var(--muted);background:none}
+  .board-legend i.goal{width:12px;height:12px;border-radius:50%;background:var(--target);opacity:.9}
+  .board-legend svg{flex:none;display:block}
 </style>
 </head>
 <body>
@@ -157,11 +199,15 @@
       <div class="canvas-box">
         <canvas id="maze"></canvas>
         <canvas id="overlay"></canvas>
+        <div id="result" class="result" role="status" aria-live="polite" hidden></div>
       </div>
       <div class="readout">
         <span><span class="k">dist</span> <b id="r-dist">–</b></span>
         <span><span class="k">mass</span> <b id="r-mass">0</b></span>
-        <span><span class="k">step</span> <b id="r-step">0</b></span>
+        <span title="Simulation steps elapsed this episode"><span class="k">steps</span> <b id="r-step">0</b></span>
+        <span title="Agent actions this episode -- steps where CARL added or removed mass (no-ops are not counted)"><span class="k">actions</span> <b id="r-acts">0</b></span>
+        <span title="Times you have changed the target direction this episode"><span class="k">dir changes</span> <b id="r-course">0</b></span>
+        <span title="Grid edits you have made by hand this episode -- same action CARL takes"><span class="k">your edits</span> <b id="r-edits">0</b></span>
         <span><span class="k">infer</span> <b id="r-ms">–</b></span>
         <span><span class="k">rate</span> <b id="r-rate">–</b></span>
       </div>
@@ -173,17 +219,37 @@
           <button id="newmaze" title="Generate a new maze and respawn the soliton">New Maze</button>
         </div>
       </div>
+      <div class="clickmode" role="group" aria-label="What clicking the board does">
+        <span class="name">click</span>
+        <button id="cm-steer" class="on" title="Click the board to aim CARL's target direction at that spot">Steers CARL</button>
+        <button id="cm-add" title="Click or drag on the board to inject mass yourself -- exactly CARL's own action: +0.3 over a radius of 7 cells"><i class="add"></i>Adds mass</button>
+        <button id="cm-rem" title="Click or drag on the board to erase mass yourself -- exactly CARL's own action: -0.3 over a radius of 7 cells"><i class="rem"></i>Removes mass</button>
+      </div>
+      <div class="board-legend">
+        <span><i class="disc add"></i>CARL <b>adds</b> mass</span>
+        <span><i class="disc rem"></i>CARL <b>removes</b> mass</span>
+        <span><i class="disc you"></i>dashed: <b>your</b> edit</span>
+        <span><svg width="20" height="9" viewBox="0 0 20 9" style="color:var(--target)" aria-hidden="true"><path d="M0 4.5h12" stroke="currentColor" stroke-width="2"/><path d="M12 .8l6 3.7-6 3.7z" fill="currentColor"/></svg>target direction</span>
+        <span><svg width="20" height="9" viewBox="0 0 20 9" style="color:var(--current)" aria-hidden="true"><path d="M0 4.5h12" stroke="currentColor" stroke-width="2"/><path d="M12 .8l6 3.7-6 3.7z" fill="currentColor"/></svg>current direction</span>
+        <span><i class="goal"></i>goal</span>
+      </div>
       <p class="tip" id="tip">
-        CARL is a goal-conditioned reinforcement learning agent that tries to steer <a href="https://en.wikipedia.org/wiki/Lenia" target="_blank" rel="noopener">Lenia</a> solitons
-
-      towards the target direction (blue arrow), by applying a series of local intervention. <b>Use arrow keys or click anywhere on the maze to change CARL's goal. Try to navigate the soliton towards the blue circle.</b></p>
+        CARL is a goal-conditioned reinforcement learning agent that steers
+        <a href="https://en.wikipedia.org/wiki/Lenia" target="_blank" rel="noopener">Lenia</a> solitons
+        towards a target direction (blue arrow). It never moves the soliton directly: on every step it
+        picks one spot on the board and either injects mass there (green disc) or erases it (red disc),
+        over a radius of 7 cells — the soliton's own dynamics turn that nudge into motion. Each disc
+        fades out over the following moment, so the fading trail is CARL's recent history of interventions.
+        <b>Use arrow keys or click anywhere on the maze to change CARL's goal. Try to navigate the soliton towards the blue circle.</b>
+        Switch what a click does with the <b>click</b> buttons above to make the same nudges yourself &mdash; click or drag on the
+        board to add or remove mass. Your discs are drawn with a dashed ring; the arrow keys keep steering CARL either way.</p>
 
       <div class="playback">
         <label class="mini" title="">
           <span>action cost
-            <span class="info-badge" tabindex="0" role="note" title="" aria-label="Action cost is the penalty CARL is told to expect for every intervention it makes on the soliton. A higher cost makes it act more sparingly and steer less aggressively; a lower cost lets it intervene more freely to correct course." data-tip="Action cost is the penalty CARL is told to expect for every intervention it makes on the soliton. A higher cost makes it act more sparingly and steer less aggressively; a lower cost lets it intervene more freely to correct course.">?</span>
+            <span class="info-badge" tabindex="0" role="note" title="" aria-label="Action cost is the penalty CARL is told to expect for every intervention it makes on the soliton. A higher cost makes it act more sparingly and steer less aggressively; a lower cost lets it intervene more freely to correct course. CARL was trained on costs from 0 to 5 and responds smoothly across that range. Past 5 the value is still passed through faithfully, but it is outside anything CARL saw in training: rather than making it act even more sparingly, the effect flattens out and gets erratic." data-tip="Action cost is the penalty CARL is told to expect for every intervention it makes on the soliton. A higher cost makes it act more sparingly and steer less aggressively; a lower cost lets it intervene more freely to correct course. CARL was trained on costs from 0 to 5 and responds smoothly across that range. Past 5 the value is still passed through faithfully, but it is outside anything CARL saw in training: rather than making it act even more sparingly, the effect flattens out and gets erratic.">?</span>
           </span>
-          <input type="range" id="cost" min="0" max="5" step="0.1" value="2.5">
+          <input type="range" id="cost" min="0" max="10" step="0.1" value="2.5">
           <b id="v-cost">2.50</b>
         </label>
       </div>
@@ -196,11 +262,18 @@
         <label class="field" title="Pick which update rule's soliton to steer -- click a thumbnail">
           <div class="row">
             <span class="name">soliton
-              <span class="info-badge" tabindex="0" role="note" title="" aria-label="Solitons differ in size, speed, and robustness. Try a few: some are noticeably easier to steer than others." data-tip="Solitons differ in size, speed, and robustness. Try a few: some are noticeably easier to steer than others.">?</span>
+              <span class="info-badge" tabindex="0" role="note" title="" aria-label="Solitons differ in their properties, 
+              such as size, speed and robustness. Those marked with a star (&#9733;) hold their shape and direction relatively
+              well under 
+              CARL's interventions, and so are the easiest to control.
+              The unstarred ones are worth trying too, but they may be brittle or move more chaotically." data-tip="Solitons differ in their properties, such as size, speed, and robustness. Those marked with a star (★) hold their shape and direction relatively well under CARL's nudges, and so are the easiest to control. The unstarred ones are worth trying too, but they may be brittle or move more chaotically.">?</span>
             </span>
+      
+    
             <button id="shuffle" title="Pick a random soliton">🎲</button>
           </div>
           <div id="soliton-grid" class="soliton-grid"></div>
+          <p class="grid-note"><b>★</b><span>Starred solitons are the easiest to control. The others can be less stable, or move more chaotically.</span></p>
         </label>
         <label class="field" style="margin-top:10px" title="Simulation grid resolution. Larger boards give roomier mazes but run fewer steps/sec.">
           <div class="row"><span class="name">board size</span></div>
@@ -223,15 +296,6 @@
           </div>
           <input type="range" id="spd" min="1" max="120" step="1" value="20">
         </label>
-      </div>
-
-      <div class="panel">
-        <h3>Steering</h3>
-        <div class="compass-wrap"><canvas id="compass" width="108" height="108" title="Click to set the target direction"></canvas></div>
-        <div class="legend">
-          <span><i style="background:var(--target)"></i>target direction</span>
-          <span><i style="background:var(--current)"></i>current direction</span>
-        </div>
       </div>
     </div>
   </div>
@@ -256,23 +320,35 @@ const CFG = {
   pinnedTime: 0.005,           // 50/10000 -- see meta_direction.json for why this is pinned
   costMin: 0, costMax: 5,      // true action_cost_range from meta_direction.json -- the model
                                 // normalizes action_cost against this, so it must match training,
-                                // independent of whatever range the UI slider exposes
+                                // independent of whatever range the UI slider exposes. The slider
+                                // deliberately runs past it (to 10), which normalizes to 2.0 rather
+                                // than clamping at 1.0: clamping would make the top half of the
+                                // slider inert, and rescaling to the slider's own range would
+                                // silently change what every existing cost value means. So a cost
+                                // above costMax is passed through honestly as an out-of-training
+                                // conditioning value, and the UI marks it as such.
   massDeathFraction: 0.3,      // soliton counts as "dead" below this fraction of its spawn mass
+  massExplodeLimit: 1500,      // ...and as blown up above this absolute mass
   modelUrl: 'models/agent_direction.onnx',
   solitonsUrl: 'models/solitons_direction.json',
   thumbDir: 'assets/solitons/',        // one PNG per allowed rule, named "<rule name>.png"
-  // rule-idx 41,40,42,32,31,39,33,34,7,45,38,43,14,18,44,5,23,37,36,35 from the RLCA training
-  // data_dir (sorted glob order over data/solitons_R18/*.npz) -- the curated subset of update
-  // rules this demo exposes, out of the 48 the maze agent was trained across.
+  // The curated subset of update rules this demo exposes, out of the 48 the maze agent was
+  // trained across (rule-idx 40,41,37,39,32,42,31,33,34,7,45,38,43,14,18,44,5,23,36,35 from the
+  // RLCA training data_dir, i.e. sorted glob order over data/solitons_R18/*.npz).
+  // The picker renders these in *this* order, five per row, so the leading five are the ones a
+  // first-time visitor sees on the top row: the solitons that survive the maze most reliably.
   allowedRuleNames: [
-    'rule74_mu0.2300_s0.0350_R18', 'rule73_mu0.2250_s0.0250_R18', 'rule75_mu0.2600_s0.0420_R18',
-    'rule57_mu0.2350_s0.0360_R18', 'rule55_mu0.2750_s0.0450_R18', 'rule72_mu0.1650_s0.0200_R18',
-    'rule58_mu0.2250_s0.0340_R18', 'rule60_mu0.2850_s0.0520_R18', 'rule23_mu0.2650_s0.0390_R18',
-    'rule81_mu0.2700_s0.0480_R18', 'rule68_mu0.3050_s0.0580_R18', 'rule76_mu0.2850_s0.0290_R18',
-    'rule33_mu0.2100_s0.0250_R18', 'rule37_mu0.2650_s0.0330_R18', 'rule7_mu0.3200_s0.0560_R18',
-    'rule21_mu0.2400_s0.0240_R18', 'rule46_mu0.2500_s0.0270_R18', 'rule67_mu0.2800_s0.0410_R18',
-    'rule63_mu0.3200_s0.0660_R18', 'rule61_mu0.2850_s0.0610_R18',
+    'rule73_mu0.2250_s0.0250_R18', 'rule74_mu0.2300_s0.0350_R18', 'rule67_mu0.2800_s0.0410_R18',
+    'rule72_mu0.1650_s0.0200_R18', 'rule57_mu0.2350_s0.0360_R18',
+    'rule75_mu0.2600_s0.0420_R18', 'rule55_mu0.2750_s0.0450_R18', 'rule58_mu0.2250_s0.0340_R18',
+    'rule60_mu0.2850_s0.0520_R18', 'rule23_mu0.2650_s0.0390_R18', 'rule81_mu0.2700_s0.0480_R18',
+    'rule68_mu0.3050_s0.0580_R18', 'rule76_mu0.2850_s0.0290_R18', 'rule33_mu0.2100_s0.0250_R18',
+    'rule37_mu0.2650_s0.0330_R18', 'rule7_mu0.3200_s0.0560_R18', 'rule21_mu0.2400_s0.0240_R18',
+    'rule46_mu0.2500_s0.0270_R18', 'rule63_mu0.3200_s0.0660_R18', 'rule61_mu0.2850_s0.0610_R18',
   ],
+  defaultRuleName: 'rule73_mu0.2250_s0.0250_R18',  // pre-selected on load
+  easyRuleCount: 5,            // leading entries flagged as easy-to-steer -- one picker row
+  actionFadeSeconds: 0.85,     // how long an intervention marker takes to fade out, in sim time
 };
 const MA = CFG.actionValue[0]; // action magnitude (0.3)
 
@@ -320,15 +396,25 @@ let dir=[0,1];                                // current target direction (dy,dx
 let comHistory=[[0,0],[0,0],[0,0],[0,0]];
 let lastCoM=null, lastDist=null, initialMass=0;
 let steps=0, actions=0, goalReached=false, solitonDead=false;
+let courseChanges=0;            // target direction changes the user made this episode
+let userEdits=0;                // grid edits the user made by hand this episode
+let failReason=null;            // 'exploded' | 'dissolved' once solitonDead is set
 let running=false, session=null, busy=false, lastMs=0, lastAction=null, lastQ=null;
+// Recent interventions, newest last: {r,c,sign,step}. Each marker fades out over
+// CFG.actionFadeSeconds of *simulation* time, so the trail reads the same at any sim speed
+// (and freezes mid-fade rather than vanishing when the run is paused).
+let actionTrail=[];
 let bank=[], currentIndex=0;
 let mazeEnabled=true;
+// The 90deg rotation the soliton spawns with. Rolled once per maze, not per spawn, so Respawn
+// re-runs the same starting configuration instead of quietly changing the soliton's heading.
+let spawnRotation=0;
 let sps=20, stepAcc=0, lastT=0, measSps=0, rateSteps=0, rateTime=0;
 const MAX_STEPS_PER_FRAME=6;
+const MAX_TRAIL=48;            // hard cap on the intervention trail (the fade usually ends it first)
 
 const cv=document.getElementById('maze'), ctx=cv.getContext('2d');
 const ov=document.getElementById('overlay'), octx=ov.getContext('2d');
-const cp=document.getElementById('compass'), cctx=cp.getContext('2d');
 let img;
 const $=id=>document.getElementById(id);
 
@@ -700,8 +786,7 @@ function rotate90(src,h,w,k){
 function placeSoliton(entry){
   mu=entry.mu; sig=entry.sigma; betas=entry.betas.slice(); buildKernel();
 
-  const k=(Math.random()*4)|0;
-  const rot=rotate90(entry.flat, entry.h, entry.w, k);
+  const rot=rotate90(entry.flat, entry.h, entry.w, spawnRotation);
   let sy=0,sx=0,sm=0;
   for(let y=0;y<rot.h;y++)for(let x=0;x<rot.w;x++){
     const v=rot.data[y*rot.w+x]; if(v>0){ sm+=v; sy+=v*y; sx+=v*x; }
@@ -721,7 +806,9 @@ function placeSoliton(entry){
   }
   applyWallCollision();
 
-  steps=0; actions=0; goalReached=false; solitonDead=false; lastAction=null; lastQ=null;
+  steps=0; actions=0; courseChanges=0; userEdits=0; goalReached=false; solitonDead=false; failReason=null;
+  lastAction=null; lastQ=null;
+  actionTrail.length=0;
   fillStack();
   const com=computeCoM();
   lastCoM=com; initialMass=com?com[2]:0;
@@ -734,6 +821,7 @@ function placeSoliton(entry){
   render();
 }
 function newMaze(){
+  spawnRotation=(Math.random()*4)|0;
   const size=+$('board').value;
   const {cw,ww,edgeWall}=boardParams(size);
   maze=generateMaze(H,W,cw,ww,edgeWall,mazeEnabled);
@@ -773,6 +861,10 @@ async function agentStep(){
   const sign=Math.sign(CFG.actionValue[at]);
   if(sign!==0){ applyAction(c,r,sign*MA); actions++; }
   lastAction={r,c,sign};
+  if(sign!==0){
+    actionTrail.push({r,c,sign,step:steps});
+    if(actionTrail.length>MAX_TRAIL) actionTrail.shift();
+  }
 
   stepSim();
   applyWallCollision();
@@ -781,7 +873,7 @@ async function agentStep(){
   const com=computeCoM();
   if(!com){
     lastCoM=null;
-    if(!goalReached && !solitonDead){ solitonDead=true; running=false; }
+    if(!goalReached && !solitonDead){ solitonDead=true; failReason='dissolved'; running=false; }
     return;
   }
   lastCoM=com;
@@ -789,7 +881,8 @@ async function agentStep(){
   lastDist=Math.hypot(maze.target[0]-com[0], maze.target[1]-com[1]);
   if(!goalReached && !solitonDead){
     if(lastDist<maze.proximity) goalReached=true;
-    else if(com[2]<CFG.massDeathFraction*initialMass) solitonDead=true;
+    else if(com[2]>CFG.massExplodeLimit){ solitonDead=true; failReason='exploded'; }
+    else if(com[2]<CFG.massDeathFraction*initialMass){ solitonDead=true; failReason='dissolved'; }
     if(goalReached||solitonDead) running=false;
   }
 }
@@ -807,6 +900,34 @@ function drawArrow(c,x0,y0,dx,dy,len,color){
   c.lineTo(x1-hs*Math.cos(ang-0.4), y1-hs*Math.sin(ang-0.4));
   c.lineTo(x1-hs*Math.cos(ang+0.4), y1-hs*Math.sin(ang+0.4));
   c.closePath(); c.fill();
+}
+// The green/red discs CARL stamps on the board each step. Each one lingers and fades out over
+// CFG.actionFadeSeconds of sim time instead of blinking for a single frame, so the pattern of
+// interventions stays readable at 20+ steps/sec: a filled disc showing the actual area affected
+// (CFG.actionRadius), a ring around it, and a brighter ring on the freshest one.
+function drawActionTrail(sc){
+  if(!actionTrail.length) return;
+  const fadeSteps=Math.max(4, CFG.actionFadeSeconds*sps);
+  const rad=CFG.actionRadius*sc, newest=actionTrail[actionTrail.length-1].step;
+  while(actionTrail.length && steps-actionTrail[0].step>fadeSteps) actionTrail.shift();
+  for(const a of actionTrail){
+    const age=(steps-a.step)/fadeSteps;
+    if(age>1) continue;
+    const k=1-age, fade=k*k;                 // ease-out: bright for a beat, then a long tail
+    const px=(a.c+0.5)*sc, py=(a.r+0.5)*sc;
+    const rgb=a.sign>0?'83,185,121':'222,73,104';
+    octx.beginPath(); octx.arc(px,py,rad,0,7);
+    octx.fillStyle=`rgba(${rgb},${(0.30*fade).toFixed(3)})`; octx.fill();
+    octx.strokeStyle=`rgba(${rgb},${(0.85*fade+0.06*k).toFixed(3)})`;
+    octx.lineWidth=(a.step===newest?3:2)*Math.max(1,sc*0.5);
+    if(a.you) octx.setLineDash([rad*0.5, rad*0.4]);   // dashed ring = the user placed this one
+    octx.stroke();
+    octx.setLineDash([]);
+    if(a.step===newest){                     // halo so the current intervention stands out
+      octx.beginPath(); octx.arc(px,py,rad+3,0,7);
+      octx.strokeStyle=`rgba(${rgb},.35)`; octx.lineWidth=1.5; octx.stroke();
+    }
+  }
 }
 function render(){
   let mass=0;
@@ -839,38 +960,41 @@ function render(){
     const [vdy,vdx]=toroidalDelta(lastCoM[0],lastCoM[1], old[0],old[1]);
     drawArrow(octx, cx,cy, vdx,vdy, alen, cs.getPropertyValue('--current').trim());
   }
-  if(lastAction && lastAction.sign!==0){
-    const px=(lastAction.c+0.5)*sc, py=(lastAction.r+0.5)*sc;
-    octx.beginPath(); octx.arc(px,py,CFG.actionRadius*sc,0,7);
-    octx.strokeStyle=lastAction.sign>0?'rgba(83,185,121,.95)':'rgba(222,73,104,.95)';
-    octx.lineWidth=3; octx.stroke();
-  }
+  drawActionTrail(sc);
 
   $('r-dist').textContent = lastDist!=null ? lastDist.toFixed(1) : '–';
   $('r-dist').className = (lastDist!=null && lastDist<maze.proximity*1.5) ? 'ok' : '';
   $('r-mass').textContent = lastCoM ? lastCoM[2].toFixed(0) : '0';
   $('r-step').textContent = steps;
+  $('r-acts').textContent = actions;
+  $('r-course').textContent = courseChanges;
+  $('r-edits').textContent = userEdits;
   $('r-ms').textContent = lastMs?lastMs.toFixed(1)+'ms':'–';
   $('r-rate').textContent = measSps?measSps.toFixed(0)+'/s':'–';
-
-  drawCompass();
+  updateResult();
 }
-function drawCompass(){
-  const w=cp.width, h=cp.height, cx=w/2, cy=h/2, R=Math.min(w,h)/2-8;
-  cctx.clearRect(0,0,w,h);
-  cctx.strokeStyle='rgba(150,140,160,.35)'; cctx.lineWidth=1;
-  cctx.beginPath(); cctx.arc(cx,cy,R,0,7); cctx.stroke();
-  cctx.beginPath(); cctx.moveTo(cx-R,cy); cctx.lineTo(cx+R,cy); cctx.moveTo(cx,cy-R); cctx.lineTo(cx,cy+R); cctx.stroke();
-  const cs=getComputedStyle(document.documentElement);
-  const targetCol=cs.getPropertyValue('--target').trim();
-  const currentCol=cs.getPropertyValue('--current').trim();
-  drawArrow(cctx, cx,cy, dir[1],dir[0], R*0.85, targetCol);
-  if(lastCoM){
-    const old=comHistory[0];
-    const [vdy,vdx]=toroidalDelta(lastCoM[0],lastCoM[1], old[0],old[1]);
-    const n=Math.hypot(vdy,vdx);
-    if(n>1e-6) drawArrow(cctx, cx,cy, vdx/n, vdy/n, R*0.85, currentCol);
+// Episode outcome, shown over the board once the run stops. Rebuilt only when the outcome
+// actually changes -- render() runs on every frame.
+let resultKey='';
+function updateResult(){
+  const el=$('result');
+  const key = goalReached ? `win:${steps}:${actions}:${courseChanges}`
+            : solitonDead ? `lose:${failReason}:${steps}:${actions}:${courseChanges}` : '';
+  if(key===resultKey) return;
+  resultKey=key;
+  if(!key){ el.hidden=true; el.innerHTML=''; return; }
+  const plural=(n,w)=>`<span class="s">${n} ${w}${n===1?'':'s'}</span>`;
+  if(goalReached){
+    el.className='result win';
+    el.innerHTML=`<b>Goal reached</b>${plural(steps,'episode step')} · ${plural(actions,'agent action')}`
+               + ` · ${plural(courseChanges,'target direction change')}`;
+  }else{
+    el.className='result lose';
+    const why = failReason==='exploded' ? 'Fail: soliton exploded' : 'Fail: soliton dissolved';
+    el.innerHTML=`<b>${why}</b>after ${plural(steps,'episode step')} · ${plural(actions,'agent action')}`
+               + ` · ${plural(courseChanges,'target direction change')}`;
   }
+  el.hidden=false;
 }
 
 // ====================================================================================
@@ -908,31 +1032,68 @@ function setRunning(v){
 }
 
 // ====================================================================================
-//  Input: click-to-steer, compass, arrow keys, sliders/buttons/selects
+//  Input: click-to-steer, arrow keys, sliders/buttons/selects
 // ====================================================================================
 let actionCost=2.5;
-cv.addEventListener('click', e=>{
-  if(!lastCoM) return;
+// Every user-initiated steer goes through here, so a single place counts course changes.
+// Re-issuing the direction the agent is already chasing (holding an arrow key down, clicking
+// straight ahead) isn't a change of course, so it isn't counted.
+function steerTo(dy,dx){
+  const n=Math.hypot(dy,dx); if(n<1e-6) return;
+  const ny=dy/n, nx=dx/n;
+  if(ny*dir[0]+nx*dir[1] < 0.9999) courseChanges++;
+  dir=[ny,nx];
+  render();
+}
+// What a click on the board does. In 'steer' mode it aims CARL's target (the original behaviour);
+// in 'add'/'remove' the click -- or a drag -- applies the agent's *own* action at that spot: the
+// same CFG.actionRadius disc and the same +-MA magnitude agentStep() uses, stamped on the same
+// fading trail so a hand-made nudge and a CARL nudge are directly comparable (dashed ring = yours).
+let clickMode='steer', painting=false, lastPaint=null;
+function setClickMode(m){
+  clickMode=m;
+  for(const [k,id] of [['steer','cm-steer'],['add','cm-add'],['remove','cm-rem']])
+    $(id).classList.toggle('on', k===m);
+  cv.classList.toggle('paint', m!=='steer');
+}
+function cellAt(e){
   const r=cv.getBoundingClientRect();
-  const px=(e.clientX-r.left)/r.width*W, py=(e.clientY-r.top)/r.height*H;
-  const ddy=py-lastCoM[0], ddx=px-lastCoM[1];
-  const n=Math.hypot(ddy,ddx); if(n<1e-6) return;
-  dir=[ddy/n, ddx/n];
-  render();
+  return [Math.floor((e.clientX-r.left)/r.width*W), Math.floor((e.clientY-r.top)/r.height*H)];
+}
+// A drag lays down a chain of discs rather than one per pixel moved: skip anything closer than
+// half a radius to the last stamp, so dragging paints at roughly the density of the discs.
+function paintStroke(gx,gy){
+  if(lastPaint){
+    const dx=gx-lastPaint[0], dy=gy-lastPaint[1], min=CFG.actionRadius*0.5;
+    if(dx*dx+dy*dy < min*min) return;
+  }
+  lastPaint=[gx,gy];
+  const sign=clickMode==='add'?1:-1;
+  applyAction(gx,gy,sign*MA);
+  userEdits++;
+  actionTrail.push({r:((gy%H)+H)%H, c:((gx%W)+W)%W, sign, step:steps, you:true});
+  if(actionTrail.length>MAX_TRAIL) actionTrail.shift();
+  if(!running) render();
+}
+cv.addEventListener('pointerdown', e=>{
+  const [gx,gy]=cellAt(e);
+  if(clickMode==='steer'){ if(lastCoM) steerTo(gy-lastCoM[0], gx-lastCoM[1]); return; }
+  painting=true; lastPaint=null;
+  cv.setPointerCapture(e.pointerId);
+  e.preventDefault();
+  paintStroke(gx,gy);
 });
-cp.addEventListener('click', e=>{
-  const r=cp.getBoundingClientRect();
-  const x=e.clientX-r.left-cp.width/2, y=e.clientY-r.top-cp.height/2;
-  const n=Math.hypot(x,y); if(n<3) return;
-  dir=[y/n, x/n];
-  render();
-});
+cv.addEventListener('pointermove', e=>{ if(!painting) return; const [gx,gy]=cellAt(e); paintStroke(gx,gy); });
+for(const ev of ['pointerup','pointercancel']) cv.addEventListener(ev, ()=>{ painting=false; lastPaint=null; });
+$('cm-steer').addEventListener('click', ()=>setClickMode('steer'));
+$('cm-add').addEventListener('click', ()=>setClickMode('add'));
+$('cm-rem').addEventListener('click', ()=>setClickMode('remove'));
 window.addEventListener('keydown', e=>{
   const tag=document.activeElement && document.activeElement.tagName;
   if(tag==='SELECT'||tag==='INPUT') return;
   const map={ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]};
   const v=map[e.key];
-  if(v){ dir=v.slice(); render(); e.preventDefault(); }
+  if(v){ steerTo(v[0],v[1]); e.preventDefault(); }
 });
 $('play').addEventListener('click', ()=>setRunning(!running));
 $('step1').addEventListener('click', async ()=>{ if(goalReached||solitonDead) return; await agentStep(); render(); });
@@ -950,7 +1111,15 @@ $('maze-toggle').addEventListener('click', ()=>{
   $('maze-toggle').classList.toggle('on',mazeEnabled);
   const was=running; setRunning(false); newMaze(); if(was) setRunning(true);
 });
-$('cost').addEventListener('input', e=>{ actionCost=+e.target.value; $('v-cost').textContent=actionCost.toFixed(2); });
+function setActionCost(v){
+  actionCost=v;
+  const el=$('v-cost');
+  el.textContent=actionCost.toFixed(2);
+  const ood=actionCost>CFG.costMax;
+  el.classList.toggle('ood', ood);
+  el.title = ood ? `Beyond the 0-${CFG.costMax} range CARL was trained on -- it is extrapolating here.` : '';
+}
+$('cost').addEventListener('input', e=>setActionCost(+e.target.value));
 $('spd').addEventListener('input', e=>{ sps=+e.target.value; $('v-spd').textContent=sps+'/s'; });
 
 // ====================================================================================
@@ -979,7 +1148,12 @@ async function loadSolitonBank(){
     const res=await fetch(CFG.solitonsUrl);
     if(res.ok) raw=await res.json();
   }catch(e){ /* offline / file:// */ }
-  if(raw) raw=raw.filter(e=>CFG.allowedRuleNames.includes(e.name));
+  // The picker's order is CFG.allowedRuleNames', not the JSON's -- the leading entries are the
+  // ones we want on the top row, so sort the fetched entries back into that order.
+  if(raw){
+    raw=raw.filter(e=>CFG.allowedRuleNames.includes(e.name))
+           .sort((a,b)=>CFG.allowedRuleNames.indexOf(a.name)-CFG.allowedRuleNames.indexOf(b.name));
+  }
   if(!raw || !raw.length) raw=[FALLBACK_SOLITON];
   bank=raw.filter(e=>Math.max(e.h,e.w)<=80).map(e=>({
     name:e.name, mu:e.mu, sigma:e.sigma, betas:e.betas, h:e.h, w:e.w,
@@ -988,17 +1162,27 @@ async function loadSolitonBank(){
   const grid=$('soliton-grid'); grid.innerHTML='';
   bank.forEach((b,i)=>{
     const btn=document.createElement('button');
-    btn.type='button'; btn.className='soliton-thumb'; btn.dataset.index=i;
-    btn.title=`${b.name} · β=[${b.betas.join(',')}] · μ${b.mu.toFixed(3)} · σ${b.sigma.toFixed(3)}`;
+    const easy=i<CFG.easyRuleCount;
+    btn.type='button'; btn.className='soliton-thumb'+(easy?' easy':''); btn.dataset.index=i;
+    btn.title=`${b.name} · β=[${b.betas.join(',')}] · μ${b.mu.toFixed(3)} · σ${b.sigma.toFixed(3)}`
+            + (easy?' · ★ easy to control':'');
     const img=document.createElement('img');
     img.src=CFG.thumbDir+encodeURIComponent(b.name)+'.png';
     img.alt=b.name; img.loading='lazy';
-    img.addEventListener('error', ()=>{ img.remove(); btn.textContent='?'; });
+    // Replace just the image on error -- the star badge below is a sibling, not part of it.
+    img.addEventListener('error', ()=>{ img.replaceWith(Object.assign(document.createElement('span'),{textContent:'?'})); });
     btn.appendChild(img);
+    if(easy){
+      const star=document.createElement('span');
+      star.className='star'; star.textContent='★'; star.setAttribute('aria-hidden','true');
+      btn.appendChild(star);
+    }
     btn.addEventListener('click', ()=>{ currentIndex=i; updateSolitonSelection(); respawnCurrentSoliton(); });
     grid.appendChild(btn);
   });
-  currentIndex=0; updateSolitonSelection();
+  const def=bank.findIndex(b=>b.name===CFG.defaultRuleName);
+  currentIndex = def>=0 ? def : 0;
+  updateSolitonSelection();
   return bank.length>1 || raw!==undefined;
 }
 function updateSolitonSelection(){
@@ -1046,6 +1230,7 @@ async function loadModel(){
 }
 (async function init(){
   initTheme();
+  setActionCost(+$('cost').value);
   await loadSolitonBank();
   setBoard(200);
   setRunning(true);
