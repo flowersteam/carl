@@ -62,7 +62,6 @@
   .canvas-box{position:relative;background:var(--screen);border-radius:10px;overflow:hidden;
     aspect-ratio:1;width:min(100%,50vh);margin:0 auto;display:flex;align-items:center;justify-content:center}
   #maze{width:100%;height:100%;image-rendering:pixelated;display:block;cursor:crosshair;touch-action:none}
-  #maze.paint{cursor:cell}
   #overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
   /* End-of-episode banner, laid over the bottom of the board. */
   /* left+right+auto margins rather than left:50%+translate -- a shrink-to-fit absolute box
@@ -97,14 +96,6 @@
   button:disabled{opacity:.4;cursor:not-allowed}
   .transport .reset-group{display:inline-flex;gap:6px;margin-left:auto;padding-left:10px;border-left:1px solid var(--line)}
   @media(max-width:420px){.transport .reset-group{margin-left:0;padding-left:0;border-left:none}}
-
-  /* What a click on the board does: steer CARL, or edit the grid by hand with CARL's own action. */
-  .clickmode{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center}
-  .clickmode .name{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--faint)}
-  .clickmode button{padding:6px 10px;font-size:12px;display:inline-flex;align-items:center;gap:6px}
-  .clickmode i{flex:none;width:10px;height:10px;border-radius:50%;border:2px solid}
-  .clickmode i.add{border-color:rgb(83,185,121);background:rgba(83,185,121,.3)}
-  .clickmode i.rem{border-color:rgb(222,73,104);background:rgba(222,73,104,.3)}
 
   .playback{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-top:10px;
     padding-top:10px;border-top:1px solid var(--line)}
@@ -180,7 +171,6 @@
   .board-legend i.disc{width:12px;height:12px;border-radius:50%;border:2px solid}
   .board-legend i.disc.add{border-color:rgb(83,185,121);background:rgba(83,185,121,.3)}
   .board-legend i.disc.rem{border-color:rgb(222,73,104);background:rgba(222,73,104,.3)}
-  .board-legend i.disc.you{border-style:dashed;border-color:var(--muted);background:none}
   .board-legend i.goal{width:12px;height:12px;border-radius:50%;background:var(--target);opacity:.9}
   .board-legend svg{flex:none;display:block}
 </style>
@@ -207,7 +197,6 @@
         <span title="Simulation steps elapsed this episode"><span class="k">steps</span> <b id="r-step">0</b></span>
         <span title="Agent actions this episode -- steps where CARL added or removed mass (no-ops are not counted)"><span class="k">actions</span> <b id="r-acts">0</b></span>
         <span title="Times you have changed the target direction this episode"><span class="k">dir changes</span> <b id="r-course">0</b></span>
-        <span title="Grid edits you have made by hand this episode -- same action CARL takes"><span class="k">your edits</span> <b id="r-edits">0</b></span>
         <span><span class="k">infer</span> <b id="r-ms">–</b></span>
         <span><span class="k">rate</span> <b id="r-rate">–</b></span>
       </div>
@@ -219,16 +208,9 @@
           <button id="newmaze" title="Generate a new maze and respawn the soliton">New Maze</button>
         </div>
       </div>
-      <div class="clickmode" role="group" aria-label="What clicking the board does">
-        <span class="name">click</span>
-        <button id="cm-steer" class="on" title="Click the board to aim CARL's target direction at that spot">Steers CARL</button>
-        <button id="cm-add" title="Click or drag on the board to inject mass yourself -- exactly CARL's own action: +0.3 over a radius of 7 cells"><i class="add"></i>Adds mass</button>
-        <button id="cm-rem" title="Click or drag on the board to erase mass yourself -- exactly CARL's own action: -0.3 over a radius of 7 cells"><i class="rem"></i>Removes mass</button>
-      </div>
       <div class="board-legend">
         <span><i class="disc add"></i>CARL <b>adds</b> mass</span>
         <span><i class="disc rem"></i>CARL <b>removes</b> mass</span>
-        <span><i class="disc you"></i>dashed: <b>your</b> edit</span>
         <span><svg width="20" height="9" viewBox="0 0 20 9" style="color:var(--target)" aria-hidden="true"><path d="M0 4.5h12" stroke="currentColor" stroke-width="2"/><path d="M12 .8l6 3.7-6 3.7z" fill="currentColor"/></svg>target direction</span>
         <span><svg width="20" height="9" viewBox="0 0 20 9" style="color:var(--current)" aria-hidden="true"><path d="M0 4.5h12" stroke="currentColor" stroke-width="2"/><path d="M12 .8l6 3.7-6 3.7z" fill="currentColor"/></svg>current direction</span>
         <span><i class="goal"></i>goal</span>
@@ -240,9 +222,7 @@
         picks one spot on the board and either injects mass there (green disc) or erases it (red disc),
         over a radius of 7 cells — the soliton's own dynamics turn that nudge into motion. Each disc
         fades out over the following moment, so the fading trail is CARL's recent history of interventions.
-        <b>Use arrow keys or click anywhere on the maze to change CARL's goal. Try to navigate the soliton towards the blue circle.</b>
-        Switch what a click does with the <b>click</b> buttons above to make the same nudges yourself &mdash; click or drag on the
-        board to add or remove mass. Your discs are drawn with a dashed ring; the arrow keys keep steering CARL either way.</p>
+        <b>Use arrow keys or click anywhere on the maze to change CARL's goal. Try to navigate the soliton towards the blue circle.</b></p>
 
       <div class="playback">
         <label class="mini" title="">
@@ -292,9 +272,9 @@
             <span class="name">sim speed
               <span class="info-badge" tabindex="0" role="note" title="" aria-label="Setting the speed too high can make the simulation stutter. Try 15-30 steps/sec, and if it's still slow, reduce the board size or switch your device to performance/high-power mode." data-tip="Setting the speed too high can make the simulation stutter. Try 15-30 steps/sec, and if it's still slow, reduce the board size or switch your device to performance/high-power mode.">?</span>
             </span>
-            <span class="val" id="v-spd">20/s</span>
+            <span class="val" id="v-spd">15/s</span>
           </div>
-          <input type="range" id="spd" min="1" max="120" step="1" value="20">
+          <input type="range" id="spd" min="1" max="120" step="1" value="15">
         </label>
       </div>
     </div>
@@ -397,7 +377,6 @@ let comHistory=[[0,0],[0,0],[0,0],[0,0]];
 let lastCoM=null, lastDist=null, initialMass=0;
 let steps=0, actions=0, goalReached=false, solitonDead=false;
 let courseChanges=0;            // target direction changes the user made this episode
-let userEdits=0;                // grid edits the user made by hand this episode
 let failReason=null;            // 'exploded' | 'dissolved' once solitonDead is set
 let running=false, session=null, busy=false, lastMs=0, lastAction=null, lastQ=null;
 // Recent interventions, newest last: {r,c,sign,step}. Each marker fades out over
@@ -409,7 +388,7 @@ let mazeEnabled=true;
 // The 90deg rotation the soliton spawns with. Rolled once per maze, not per spawn, so Respawn
 // re-runs the same starting configuration instead of quietly changing the soliton's heading.
 let spawnRotation=0;
-let sps=20, stepAcc=0, lastT=0, measSps=0, rateSteps=0, rateTime=0;
+let sps=15, stepAcc=0, lastT=0, measSps=0, rateSteps=0, rateTime=0;
 const MAX_STEPS_PER_FRAME=6;
 const MAX_TRAIL=48;            // hard cap on the intervention trail (the fade usually ends it first)
 
@@ -806,7 +785,7 @@ function placeSoliton(entry){
   }
   applyWallCollision();
 
-  steps=0; actions=0; courseChanges=0; userEdits=0; goalReached=false; solitonDead=false; failReason=null;
+  steps=0; actions=0; courseChanges=0; goalReached=false; solitonDead=false; failReason=null;
   lastAction=null; lastQ=null;
   actionTrail.length=0;
   fillStack();
@@ -920,9 +899,7 @@ function drawActionTrail(sc){
     octx.fillStyle=`rgba(${rgb},${(0.30*fade).toFixed(3)})`; octx.fill();
     octx.strokeStyle=`rgba(${rgb},${(0.85*fade+0.06*k).toFixed(3)})`;
     octx.lineWidth=(a.step===newest?3:2)*Math.max(1,sc*0.5);
-    if(a.you) octx.setLineDash([rad*0.5, rad*0.4]);   // dashed ring = the user placed this one
     octx.stroke();
-    octx.setLineDash([]);
     if(a.step===newest){                     // halo so the current intervention stands out
       octx.beginPath(); octx.arc(px,py,rad+3,0,7);
       octx.strokeStyle=`rgba(${rgb},.35)`; octx.lineWidth=1.5; octx.stroke();
@@ -968,7 +945,6 @@ function render(){
   $('r-step').textContent = steps;
   $('r-acts').textContent = actions;
   $('r-course').textContent = courseChanges;
-  $('r-edits').textContent = userEdits;
   $('r-ms').textContent = lastMs?lastMs.toFixed(1)+'ms':'–';
   $('r-rate').textContent = measSps?measSps.toFixed(0)+'/s':'–';
   updateResult();
@@ -1045,49 +1021,12 @@ function steerTo(dy,dx){
   dir=[ny,nx];
   render();
 }
-// What a click on the board does. In 'steer' mode it aims CARL's target (the original behaviour);
-// in 'add'/'remove' the click -- or a drag -- applies the agent's *own* action at that spot: the
-// same CFG.actionRadius disc and the same +-MA magnitude agentStep() uses, stamped on the same
-// fading trail so a hand-made nudge and a CARL nudge are directly comparable (dashed ring = yours).
-let clickMode='steer', painting=false, lastPaint=null;
-function setClickMode(m){
-  clickMode=m;
-  for(const [k,id] of [['steer','cm-steer'],['add','cm-add'],['remove','cm-rem']])
-    $(id).classList.toggle('on', k===m);
-  cv.classList.toggle('paint', m!=='steer');
-}
-function cellAt(e){
+cv.addEventListener('click', e=>{
+  if(!lastCoM) return;
   const r=cv.getBoundingClientRect();
-  return [Math.floor((e.clientX-r.left)/r.width*W), Math.floor((e.clientY-r.top)/r.height*H)];
-}
-// A drag lays down a chain of discs rather than one per pixel moved: skip anything closer than
-// half a radius to the last stamp, so dragging paints at roughly the density of the discs.
-function paintStroke(gx,gy){
-  if(lastPaint){
-    const dx=gx-lastPaint[0], dy=gy-lastPaint[1], min=CFG.actionRadius*0.5;
-    if(dx*dx+dy*dy < min*min) return;
-  }
-  lastPaint=[gx,gy];
-  const sign=clickMode==='add'?1:-1;
-  applyAction(gx,gy,sign*MA);
-  userEdits++;
-  actionTrail.push({r:((gy%H)+H)%H, c:((gx%W)+W)%W, sign, step:steps, you:true});
-  if(actionTrail.length>MAX_TRAIL) actionTrail.shift();
-  if(!running) render();
-}
-cv.addEventListener('pointerdown', e=>{
-  const [gx,gy]=cellAt(e);
-  if(clickMode==='steer'){ if(lastCoM) steerTo(gy-lastCoM[0], gx-lastCoM[1]); return; }
-  painting=true; lastPaint=null;
-  cv.setPointerCapture(e.pointerId);
-  e.preventDefault();
-  paintStroke(gx,gy);
+  const px=(e.clientX-r.left)/r.width*W, py=(e.clientY-r.top)/r.height*H;
+  steerTo(py-lastCoM[0], px-lastCoM[1]);
 });
-cv.addEventListener('pointermove', e=>{ if(!painting) return; const [gx,gy]=cellAt(e); paintStroke(gx,gy); });
-for(const ev of ['pointerup','pointercancel']) cv.addEventListener(ev, ()=>{ painting=false; lastPaint=null; });
-$('cm-steer').addEventListener('click', ()=>setClickMode('steer'));
-$('cm-add').addEventListener('click', ()=>setClickMode('add'));
-$('cm-rem').addEventListener('click', ()=>setClickMode('remove'));
 window.addEventListener('keydown', e=>{
   const tag=document.activeElement && document.activeElement.tagName;
   if(tag==='SELECT'||tag==='INPUT') return;
