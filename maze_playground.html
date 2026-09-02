@@ -62,6 +62,7 @@
   .canvas-box{position:relative;background:var(--screen);border-radius:10px;overflow:hidden;
     aspect-ratio:1;width:min(100%,50vh);margin:0 auto;display:flex;align-items:center;justify-content:center}
   #maze{width:100%;height:100%;image-rendering:pixelated;display:block;cursor:crosshair;touch-action:none}
+  #maze.human{cursor:cell}
   #overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
   /* End-of-episode banner, laid over the bottom of the board. */
   /* left+right+auto margins rather than left:50%+translate -- a shrink-to-fit absolute box
@@ -79,6 +80,15 @@
   .result.win b{color:#7fd6a1}
   .result.lose{border-color:rgba(222,73,104,.7)}
   .result.lose b{color:#f0879f}
+  /* Transient notice over the board -- currently only "that click was out of CARL's reach".
+     Never unmounted, just faded, so repeat offences re-show it without a layout flicker. */
+  .toast{position:absolute;top:8px;left:8px;right:8px;width:fit-content;margin:0 auto;
+    max-width:calc(100% - 16px);text-align:center;
+    padding:6px 11px;border-radius:9px;background:rgba(12,7,17,.9);color:#fff;
+    border:1px solid rgba(255,255,255,.16);box-shadow:0 6px 24px -10px rgba(0,0,0,.8);
+    font-family:"IBM Plex Mono",monospace;font-size:10.5px;line-height:1.4;
+    opacity:0;transform:translateY(-5px);transition:opacity .16s,transform .16s;pointer-events:none}
+  .toast.show{opacity:1;transform:none}
   .readout{display:flex;gap:4px 12px;flex-wrap:wrap;margin-top:10px;
     font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);
     font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -164,6 +174,7 @@
   .board-legend{display:flex;flex-wrap:wrap;gap:5px 13px;justify-content:center;align-items:center;
        font-size:10.5px;color:var(--muted);margin:10px 0 0;line-height:1.4}
   .board-legend span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .board-legend span[hidden]{display:none}
   .board-legend i{flex:none;display:inline-block}
   .board-legend i.disc{width:12px;height:12px;border-radius:50%;border:2px solid}
   .board-legend i.disc.add{border-color:rgb(83,185,121);background:rgba(83,185,121,.3)}
@@ -187,6 +198,7 @@
         <canvas id="maze"></canvas>
         <canvas id="overlay"></canvas>
         <div id="result" class="result" role="status" aria-live="polite" hidden></div>
+        <div id="toast" class="toast" role="status" aria-live="polite"></div>
       </div>
       <div class="readout">
         <span><span class="k">dist</span> <b id="r-dist">–</b></span>
@@ -200,26 +212,28 @@
       <div class="transport">
         <button id="play">Pause</button>
         <button id="step1">Step</button>
+        <button id="actor" title="Who intervenes on the soliton. Switch to You and CARL stops acting -- you make the nudges instead, with the mouse.">CARL acts</button>
         <div class="reset-group">
           <button id="respawn" title="Re-place the current soliton at the maze start">Respawn</button>
           <button id="newmaze" title="Generate a new maze and respawn the soliton">New Maze</button>
         </div>
       </div>
       <div class="board-legend">
-        <span><i class="disc add"></i>CARL <b>adds</b> mass</span>
-        <span><i class="disc rem"></i>CARL <b>removes</b> mass</span>
-        <span><svg width="20" height="9" viewBox="0 0 20 9" style="color:var(--target)" aria-hidden="true"><path d="M0 4.5h12" stroke="currentColor" stroke-width="2"/><path d="M12 .8l6 3.7-6 3.7z" fill="currentColor"/></svg>target direction</span>
+        <span><i class="disc add"></i>adding mass</span>
+        <span><i class="disc rem"></i>removing mass</span>
+        <span id="legend-target"><svg width="20" height="9" viewBox="0 0 20 9" style="color:var(--target)" aria-hidden="true"><path d="M0 4.5h12" stroke="currentColor" stroke-width="2"/><path d="M12 .8l6 3.7-6 3.7z" fill="currentColor"/></svg>target direction</span>
         <span><svg width="20" height="9" viewBox="0 0 20 9" style="color:var(--current)" aria-hidden="true"><path d="M0 4.5h12" stroke="currentColor" stroke-width="2"/><path d="M12 .8l6 3.7-6 3.7z" fill="currentColor"/></svg>current direction</span>
         <span><i class="goal"></i>goal</span>
       </div>
       <p class="tip" id="tip">
-        CARL is a goal-conditioned reinforcement learning agent that steers
-        <a href="https://en.wikipedia.org/wiki/Lenia" target="_blank" rel="noopener">Lenia</a> solitons
-        towards a target direction (blue arrow). It never moves the soliton directly: on every step it
-        picks one spot on the board and either injects mass there (green disc) or erases it (red disc),
-        over a radius of 7 cells — the soliton's own dynamics turn that nudge into motion. Each disc
-        fades out over the following moment, so the fading trail is CARL's recent history of interventions.
+        CARL is a goal-conditioned reinforcement learning agent that is able to guide the dynamics of
+        <a href="https://en.wikipedia.org/wiki/Lenia" target="_blank" rel="noopener"><b>Lenia</b></a> (continuous cellular automaton) 
+        towards desired states through a sequence of local interventions. 
+        In this demo, CARL was trained to steer <b>solitons</b> (local self-organized patterns) towards a target direction. At each step, CARL can select a spot on the board and either inject or erase mass there. 
         <b>Use arrow keys or click anywhere on the maze to change CARL's goal. Try to navigate the soliton towards the blue circle.</b></p>
+      <p class="tip" id="human-hint" hidden><b>You are acting now.</b> CARL is idle; on the board,
+        <b>left-click adds mass</b>, <b>right-click removes it</b> and
+        <b>middle-click advances one step</b> (the Step button does the same).</p>
 
       <div class="playback">
         <label class="mini" title="">
@@ -254,8 +268,9 @@
         <label class="field" style="margin-top:10px" title="Simulation grid resolution. Larger boards give roomier mazes but run fewer steps/sec.">
           <div class="row"><span class="name">board size</span></div>
           <select id="board">
-            <option value="150">150²</option>
-            <option value="200" selected>200²</option>
+            <option value="100">100²</option>
+            <option value="150" selected>150²</option>
+            <option value="200">200²</option>
             <option value="250">250²</option>
           </select>
         </label>
@@ -265,7 +280,7 @@
         </label>
         <label class="field" style="margin-top:10px" title="How fast the simulation runs, in target steps per second. The readout above shows the actual measured rate.">
           <div class="row">
-            <span class="name">sim speed
+            <span class="name">simulation fps
               <span class="info-badge" tabindex="0" role="note" title="" aria-label="Setting the speed too high can make the simulation stutter. Try 15-30 steps/sec, and if it's still slow, reduce the board size or switch your device to performance/high-power mode." data-tip="Setting the speed too high can make the simulation stutter. Try 15-30 steps/sec, and if it's still slow, reduce the board size or switch your device to performance/high-power mode.">?</span>
             </span>
             <span class="val" id="v-spd">15/s</span>
@@ -381,6 +396,12 @@ let running=false, session=null, busy=false, lastMs=0, lastAction=null, lastQ=nu
 let actionTrail=[];
 let bank=[], currentIndex=0;
 let mazeEnabled=true;
+// Who intervenes on the soliton. When true CARL's policy is never queried: the sim still
+// advances, but the only actions on the board are the ones the user clicks in.
+let humanActs=false;
+// The user's queued action, {gx,gy,sign}, or null. At most one is ever held: a step consumes it
+// exactly where agentAct() would have run, so a human turn and a CARL turn are the same turn.
+let pendingAction=null;
 // The 90deg rotation the soliton spawns with. Rolled once per maze, not per spawn, so Respawn
 // re-runs the same starting configuration instead of quietly changing the soliton's heading.
 let spawnRotation=0;
@@ -583,9 +604,13 @@ function fillStack(){ stack=[]; for(let i=0;i<CFG.K;i++) stack.push(Float32Array
 // current CoM -- matches the fixed-size grid the model was trained on (see CFG.netSize) instead
 // of feeding it the full, much larger maze board. Returns the crop's board-space origin too, so
 // the caller can map the model's per-pixel output back to board coordinates.
+function agentWindowOrigin(cy,cx){
+  const half=CFG.netSize>>1;
+  return [Math.round(cy)-half, Math.round(cx)-half];
+}
 function buildCroppedStateInput(cy,cx){
-  const S=CFG.netSize, half=S>>1, SS=S*S;
-  const oy=Math.round(cy)-half, ox=Math.round(cx)-half;
+  const S=CFG.netSize, SS=S*S;
+  const [oy,ox]=agentWindowOrigin(cy,cx);
   const data=new Float32Array(CFG.K*SS);
   for(let k=0;k<CFG.K;k++){
     const frame=stack[k], base=k*SS;
@@ -733,8 +758,17 @@ function boardParams(size){
   // this can shrink without the soliton clipping wall edges on every turn. edgeWall matches ww
   // so the outer perimeter reads as the same thickness as the inner separator walls. Thicker
   // walls eat into the cell count at this fixed cw, so richness is a bit more modest than a
-  // thin-wall layout could manage: 150->2x2, 200->3x3, 250->4x4.
-  return { cw: 44, ww: 9, edgeWall: 9 };
+  // thin-wall layout could manage: 200->3x3, 250->4x4.
+  // The 150 board is the exception. A cw floor of 44 only fits 2x2 cells there, and the leftover
+  // space then gets spent widening those corridors to 61px (see generateMaze) -- an open room
+  // with one dividing wall rather than a maze. Dropping its floor to 38 fits 3x3 instead, so the
+  // corridors settle at 38px and the reclaimed space becomes wall. Wall thickness is untouched:
+  // 38 is the largest floor that still buys the extra row/column (39 would fall back to 2x2).
+  // 100 is tighter again, and 2x2 is all it can hold: a third row would need ~21px corridors,
+  // far narrower than the soliton itself. Its floor is 36 because that is what makes the 2x2
+  // land on the intended 9px border -- at 44 the same 2x2 fits only by eating the border down
+  // to 1px, which would leave the perimeter thinner than the walls inside it.
+  return { cw: size<=100 ? 36 : size<=150 ? 38 : 44, ww: 9, edgeWall: 9 };
 }
 
 // ====================================================================================
@@ -784,6 +818,7 @@ function placeSoliton(entry){
   steps=0; actions=0; courseChanges=0; goalReached=false; solitonDead=false; failReason=null;
   lastAction=null; lastQ=null;
   actionTrail.length=0;
+  pendingAction=null;
   fillStack();
   const com=computeCoM();
   lastCoM=com; initialMass=com?com[2]:0;
@@ -817,7 +852,29 @@ function respawnCurrentSoliton(){ placeSoliton(bank[currentIndex]); }
 //  Agent step
 // ====================================================================================
 async function agentStep(){
-  if(!session||!lastCoM) return;
+  if(!lastCoM) return;
+  if(humanActs){ lastMs=0; applyPendingAction(); }   // no inference -- the readout shows "--"
+  else if(!session) return;
+  else await agentAct();
+  stepSim();
+  applyWallCollision();
+  pushStack();
+  finishStep();
+}
+// The user's half of a turn: stamp the one queued action, if any, and clear the queue. Runs at
+// the same point in the step as agentAct(), so the action is registered on this step and the
+// board is free to take the next one.
+function applyPendingAction(){
+  const a=pendingAction;
+  if(!a) return;
+  pendingAction=null;
+  applyAction(a.gx,a.gy,a.sign*MA);
+  actions++;
+  actionTrail.push({r:((a.gy%H)+H)%H, c:((a.gx%W)+W)%W, sign:a.sign, step:steps});
+  if(actionTrail.length>MAX_TRAIL) actionTrail.shift();
+}
+// CARL's half of a turn: pick a spot + sign from the policy and stamp it on the board.
+async function agentAct(){
   const t0=performance.now();
   const S=CFG.netSize, SS=S*S;
   const {data,oy,ox}=buildCroppedStateInput(lastCoM[0],lastCoM[1]);
@@ -840,11 +897,10 @@ async function agentStep(){
     actionTrail.push({r,c,sign,step:steps});
     if(actionTrail.length>MAX_TRAIL) actionTrail.shift();
   }
-
-  stepSim();
-  applyWallCollision();
-  pushStack();
-
+}
+// Bookkeeping shared by both actors: recompute the soliton's center of mass and decide whether
+// the episode has ended.
+function finishStep(){
   const com=computeCoM();
   if(!com){
     lastCoM=null;
@@ -902,6 +958,20 @@ function drawActionTrail(sc){
     }
   }
 }
+// The queued-but-not-yet-applied action, as a hollow dashed ring: it marks the spot the next
+// step will stamp, so a click always has an immediate answer on the board even though the mass
+// does not move until the step lands.
+function drawPendingAction(sc){
+  if(!pendingAction) return;
+  const {gx,gy,sign}=pendingAction, rad=CFG.actionRadius*sc;
+  const rgb=sign>0?'83,185,121':'222,73,104';
+  octx.beginPath(); octx.arc((gx+0.5)*sc,(gy+0.5)*sc,rad,0,7);
+  octx.setLineDash([rad*0.55,rad*0.45]);
+  octx.strokeStyle=`rgba(${rgb},.9)`;
+  octx.lineWidth=2*Math.max(1,sc*0.5);
+  octx.stroke();
+  octx.setLineDash([]);
+}
 function render(){
   let mass=0;
   for(let i=0;i<N;i++){
@@ -928,12 +998,15 @@ function render(){
   if(lastCoM){
     const cx=lastCoM[1]*sc, cy=lastCoM[0]*sc, alen=Math.max(H,W)*0.16*sc;
     const cs=getComputedStyle(document.documentElement);
-    drawArrow(octx, cx,cy, dir[1],dir[0], alen, cs.getPropertyValue('--target').trim());
+    // The target direction is CARL's instruction. With CARL idle nothing consumes it, so the blue
+    // arrow would be a claim about an agent that isn't acting -- hide it while the user has the board.
+    if(!humanActs) drawArrow(octx, cx,cy, dir[1],dir[0], alen, cs.getPropertyValue('--target').trim());
     const old=comHistory[0];
     const [vdy,vdx]=toroidalDelta(lastCoM[0],lastCoM[1], old[0],old[1]);
     drawArrow(octx, cx,cy, vdx,vdy, alen, cs.getPropertyValue('--current').trim());
   }
   drawActionTrail(sc);
+  drawPendingAction(sc);
 
   $('r-dist').textContent = lastDist!=null ? lastDist.toFixed(1) : '–';
   $('r-dist').className = (lastDist!=null && lastDist<maze.proximity*1.5) ? 'ok' : '';
@@ -1018,7 +1091,7 @@ function steerTo(dy,dx){
   render();
 }
 cv.addEventListener('click', e=>{
-  if(!lastCoM) return;
+  if(humanActs||!lastCoM) return;   // in human mode the left button acts instead; arrows still steer
   const r=cv.getBoundingClientRect();
   const px=(e.clientX-r.left)/r.width*W, py=(e.clientY-r.top)/r.height*H;
   steerTo(py-lastCoM[0], px-lastCoM[1]);
@@ -1031,7 +1104,76 @@ window.addEventListener('keydown', e=>{
   if(v){ steerTo(v[0],v[1]); e.preventDefault(); }
 });
 $('play').addEventListener('click', ()=>setRunning(!running));
-$('step1').addEventListener('click', async ()=>{ if(goalReached||solitonDead) return; await agentStep(); render(); });
+// Step always leaves the run paused and the board one step further on, so it reads as a scrub
+// rather than a nudge to a still-running sim. If the loop happens to be mid-batch when the click
+// lands (busy), that in-flight step is the advance -- stepping again here would double it.
+async function stepOnce(){
+  setRunning(false);
+  if(busy||goalReached||solitonDead) return;
+  busy=true;
+  try{ await agentStep(); } finally { busy=false; }
+  render();
+}
+$('step1').addEventListener('click', stepOnce);
+
+// ------------------------------------------------------------------------------------
+//  Human actor: the same intervention CARL makes -- same +-MA over CFG.actionRadius, same
+//  disc, same "actions" tally -- and, like CARL, at most one per step. A click queues the
+//  action rather than applying it on the spot; the next step stamps it in at exactly the
+//  point in the turn CARL's own action would land. Paused, the click *is* that step, so a
+//  click always moves the world on. Running, it lands on the next step (a few ms) and shows
+//  as a hollow ring until then. A click while one is already queued is ignored.
+// ------------------------------------------------------------------------------------
+// CARL's reach: buildCroppedStateInput() hands the policy a CFG.netSize window centered on the
+// soliton, and the policy returns one q value per cell of exactly that window -- so a spot outside
+// it is not a move CARL could make. Same bound, same origin math, for the user.
+function inAgentReach(gy,gx){
+  if(!lastCoM) return false;
+  const S=CFG.netSize, [oy,ox]=agentWindowOrigin(lastCoM[0],lastCoM[1]);
+  return ((gy-oy)%H+H)%H < S && ((gx-ox)%W+W)%W < S;
+}
+let toastTimer=0;
+function showToast(msg){
+  const el=$('toast');
+  el.textContent=msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'), 2000);
+}
+function humanAct(e, sign){
+  if(goalReached||solitonDead) return;
+  if(pendingAction||busy) return;              // one action per step, no queue-jumping
+  const r=cv.getBoundingClientRect();
+  const gx=Math.floor((e.clientX-r.left)/r.width*W), gy=Math.floor((e.clientY-r.top)/r.height*H);
+  if(!inAgentReach(gy,gx)){
+    showToast(`Out of reach — only actions close to the soliton are.`);
+    return;
+  }
+  pendingAction={gx,gy,sign};
+  if(running) render();                        // show it queued
+  else stepOnce();                             // paused: act and advance in one motion
+}
+cv.addEventListener('pointerdown', e=>{
+  if(!humanActs) return;
+  if(e.button===0) humanAct(e,1);
+  else if(e.button===2) humanAct(e,-1);
+  else if(e.button===1) stepOnce();
+  else return;
+  e.preventDefault();               // no text selection, and no middle-click autoscroll
+});
+// Right- and middle-click are actions here, not browser gestures.
+cv.addEventListener('contextmenu', e=>{ if(humanActs) e.preventDefault(); });
+cv.addEventListener('auxclick', e=>{ if(humanActs) e.preventDefault(); });
+$('actor').addEventListener('click', ()=>{
+  humanActs=!humanActs;
+  $('actor').textContent=humanActs?'You act':'CARL acts';
+  $('actor').classList.toggle('on',humanActs);
+  $('human-hint').hidden=!humanActs;
+  $('legend-target').hidden=humanActs;         // no blue arrow on the board, no key for it
+  cv.classList.toggle('human',humanActs);
+  lastMs=0; lastQ=null; lastAction=null; pendingAction=null;
+  render();
+});
 $('respawn').addEventListener('click', respawnCurrentSoliton);
 $('newmaze').addEventListener('click', newMaze);
 $('shuffle').addEventListener('click', ()=>{
@@ -1167,7 +1309,7 @@ async function loadModel(){
   initTheme();
   setActionCost(+$('cost').value);
   await loadSolitonBank();
-  setBoard(200);
+  setBoard(+$('board').value);
   setRunning(true);
   loadModel();
 })();
