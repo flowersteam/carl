@@ -6,7 +6,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>The Artificial Experimentalist — CARL</title>
 <meta name="description" content="Companion site for 'The Artificial Experimentalist: Discovery and Control of Self-Organizing Phenomena with Autotelic Reinforcement Learning' (ALife 2026). Videos, figures, and two interactive demos that run the trained agents in your browser.">
-<link rel="icon" href="data:,">
+<link rel="icon" href="favicon.ico" sizes="32x32">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -21,6 +23,8 @@
     --k-add:#12a312;--k-del:#d31414;--k-tgt:#1f74c9;--k-cur:#bf7300;--k-box:#d31414;
     --shadow:0 20px 60px -30px rgba(60,20,40,.18);
     --col:1000px;
+    /* How far the cover clips (and their note) escape the wrap on each side. */
+    --breakout:clamp(0px,(100vw - 1160px)/2 - 28px,150px);
   }
   :root[data-theme="dark"]{
     --bg:#0b0710;--raised:#150c20;--line:#2a1d3a;--line2:#3b2a4d;
@@ -52,8 +56,15 @@
   .kicker{display:block;font-family:inherit;font-weight:600;font-size:17px;line-height:1.3;
      letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
 
-  h2{font-family:"Fraunces",serif;font-weight:600;font-size:25px;letter-spacing:-.01em;
+  h2,h3{font-family:"Fraunces",serif;font-weight:600;font-size:25px;letter-spacing:-.01em;
      margin:0 0 4px}
+  /* Chapter markers: one level above the section headings, splitting the body of the page
+     into its two movements. Same type as the section headings -- only the hairline and the
+     extra air mark the change of rank, so the page keeps a single heading voice. */
+  .chap{max-width:var(--col);margin:0 0 18px;padding-top:24px;
+     border-top:1px solid var(--line2)}
+  /* A chapter opens on more air than an ordinary section break. */
+  section.chap-open{margin-top:76px}
   .authors{margin:0;font-size:17.5px;color:var(--ink)}
   .meta{margin:5px 0 0;font-size:15.5px;color:var(--muted);line-height:1.55}
 
@@ -181,7 +192,10 @@
 
   /* Banner: the framework loop and what the three experiments are. Both blocks sit on the
      text measure, so the diagram, its caption and the prose share one left and right edge. */
-  .bblock{margin-top:24px;padding-top:22px;border-top:1px solid var(--line)}
+  /* Only a block that follows another gets a separating rule -- the first one sits
+     directly under the chapter title, which brings its own. */
+  .bblock{margin-top:24px}
+  .bblock + .bblock{padding-top:22px;border-top:1px solid var(--line)}
   .bprose{max-width:var(--col)}
   .bprose p{margin:0 0 12px}
   /* The three experiments, set as a plain list so the structure is visible at a glance. */
@@ -228,12 +242,14 @@
      resolution of the source clips (456-480px), so they get as large as they can without
      upscaling. On narrower viewports there is no margin to take and the clips sit flush. */
   .clips{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;
-    margin-inline:calc(-1 * clamp(0px,(100vw - 1160px)/2 - 28px,150px))}
+    margin-inline:calc(-1 * var(--breakout))}
   .clip{display:block;text-decoration:none;color:inherit}
   .clip video{display:block;width:100%;aspect-ratio:1;object-fit:cover;
     border-radius:12px;border:1px solid var(--line2);background:#000}
   .clip:hover video{border-color:var(--accent)}
-  .cover-note{margin:16px 0 0;font-size:17.5px;line-height:1.7;color:var(--muted);max-width:var(--col)}
+  /* The note sits under the clips and takes the same breakout, so its measure matches theirs. */
+  .cover-note{margin:16px 0 0;font-size:17px;line-height:1.7;color:var(--muted);
+    max-width:none;margin-inline:calc(-1 * var(--breakout))}
   @media(max-width:900px){
     .strip{grid-template-columns:repeat(3,1fr)}
     .clips{grid-template-columns:1fr;gap:18px}
@@ -282,10 +298,11 @@
       </div>
       <p class="cover-note">
         In this work we develop a closed-loop framework based on autotelic reinforcement
-        learning for discovery and control in complex systems: an agent samples its own goals
+        learning for discovery and control in complex systems: an agent samples goals 
+        (i.e. desired states or dynamics of the system)
         and learns to steer a system toward them through small, local interventions on its
-        state. We instantiate the framework on Lenia, a continuous cellular automaton, in an
-        agentic system we call CARL. The clips above show one episode from each of our three
+        state. We instantiate the framework on Lenia, a continuous cellular automaton, in a system 
+        we call CARL. The clips above show one episode from each of our three
         experiments. Trained CARL agents can (1) create solitons, the self-organizing patterns
         Lenia is known for; (2) control them, by steering their direction of movement; and (3)
         take direction from a human in the loop, acting as a high-level interface between a
@@ -369,7 +386,8 @@
       produce increasingly complex and life-like patterns, making them ideal testbeds for
       discovering and controlling emergent phenomena. Because the space of behaviors a CA can
       produce is vast and difficult to anticipate, researchers have developed a range of methods to
-      explore it (see Related Work in the <a href="https://hal.science/hal-05698778v1" target="_blank" rel="noopener">preprint</a>). Most of these, however, operate in open loop: parameters and
+      explore it (see Related Work in the <a href="https://direct.mit.edu/isal/proceedings/isal2026/38/45/138193" target="_blank" rel="noopener">paper</a>). 
+      Most of these, however, operate in open loop: parameters and
       initial conditions are chosen upfront, with no interaction during rollout.
     </p>
     <p class="lede">
@@ -417,13 +435,13 @@
       activations dissipates within a few steps on an empty grid. What happens when we combine them?
     </p>
     <p class="lede">
-      As the figure below shows, the same perturbation can drive the soliton into a different
-      attractor: it survives on a new heading, dissolves,
-      spreads until it fills the grid, or, most interestingly, morphs into a new stable pattern. 
-      This show how powerful external perturbations can be in systems such as Lenia, and we ask
-      ourselves, can these be harnessed? Can we train a controller that can intervene on the system adding
-      guide it towards desired states by strategic placement of perturbations similar as those in
-      this example?
+      The outcome is not the same each time. Under different random draws, the same kind of patch
+       can turn the orbium, dissolve it, blow it up into a Turing pattern, or cause it to morph into an 
+       entirely new stable soliton. A few perturbations at the right place and moment decide 
+       which attractor the system falls into. Can that leverage be put to use — can we train a 
+       controller that knows where and when to perturb, in order to steer the system towards 
+       desired regimes? More specifically, can we train a controller that can discover new self-organizing
+       patterns, and learn to control their behavior?
 
     </p>
     <figure class="motiv">
@@ -451,12 +469,6 @@
           </div>
           <div class="frame">
             <video autoplay muted playsinline loop preload="metadata">
-              <source src="assets/videos/motivation/metamorphosis.mp4" type="video/mp4">
-            </video>
-            <span class="t">Metamorphosis</span>
-          </div>
-          <div class="frame">
-            <video autoplay muted playsinline loop preload="metadata">
               <source src="assets/videos/motivation/death.mp4" type="video/mp4">
             </video>
             <span class="t">Death</span>
@@ -466,6 +478,12 @@
               <source src="assets/videos/motivation/explosion.mp4" type="video/mp4">
             </video>
             <span class="t">Explosion</span>
+          </div>
+          <div class="frame">
+            <video autoplay muted playsinline loop preload="metadata">
+              <source src="assets/videos/motivation/metamorphosis.mp4" type="video/mp4">
+            </video>
+            <span class="t">Metamorphosis</span>
           </div>
         </div>
         <div class="mlab l3">Diverse outcomes</div>
@@ -478,7 +496,8 @@
 
   <!-- Banner: the framework loop and the three experiments in brief. The frame-by-frame
        rollouts live with their experiments, in the sections below. -->
-  <section id="hero" style="margin-top:30px">
+  <section id="hero" class="chap-open">
+    <h2 class="chap">Framework</h2>
       <div class="bblock">
         <figure id="fig1">
           <div class="plate">
@@ -494,6 +513,33 @@
       </div>
 
     <div class="bblock bprose">
+      <p>We cast the discovery and control of solitons in Lenia as a sequential decision problem,
+        and tackle it with reinforcement learning.</p>
+      <p>An episode alternates between the agent and the system. At each step the agent observes the
+        grid and applies one intervention, the Lenia update rule then advances the state, and the
+        agent receives a reward that scores the new state against the goal and charges for the
+        intervention. Interventions are local and simple: an action adds or removes mass in a small disk
+        around a single cell. The agent may also choose not to intervene.</p>
+      <p>At the start of each episode CARL samples a goal, which specifies the target the
+        agent must reach, the action cost, and the update rule the episode runs under.
+        Lenia's update rule is parameterized, and we train across a set of update rules. Every
+        intervention carries the sampled action cost. Driving the system towards a desired state
+        can be done with continuous interventions, i.e. micromanaging, or with sparse interventions
+        which enable the complex system to do the rest of the work. Action costs tip the balance
+        toward the latter, pushing the agent to act sparsely and to work alongside the system's
+        dynamics rather than against them.</p>
+      <p>The policy network is a U-Net (<a class="cite" href="https://doi.org/10.1007/978-3-319-24574-4_28" target="_blank" rel="noopener" data-cite="Olaf Ronneberger, Philipp Fischer and Thomas Brox (2015). U-Net: Convolutional Networks for Biomedical Image Segmentation. Medical Image Computing and Computer-Assisted Intervention &#8211; MICCAI 2015, 234&#8211;241. Springer International Publishing.">Ronneberger et al., 2015</a>) 
+        that maps the grid to a dense field of
+        Q-values, one per action type, so choosing an action is choosing a cell. Dense action
+        representations of this kind have previously been used for robotic
+        pushing, grasping and mobile manipulation (<a class="cite" href="https://doi.org/10.1109/IROS.2018.8593986" target="_blank" rel="noopener" data-cite="Andy Zeng, Shuran Song, Stefan Welker, Johnny Lee, Alberto Rodriguez and Thomas Funkhouser (2018). Learning Synergies Between Pushing and Grasping with Self-Supervised Deep Reinforcement Learning. 2018 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS), 4238&#8211;4245. IEEE Press.">Zeng et al., 2018</a>;
+        <a class="cite" href="https://arxiv.org/abs/2004.09141" target="_blank" rel="noopener" data-cite="Jimmy Wu, Xingyuan Sun, Andy Zeng, Shuran Song, Johnny Lee, Szymon Rusinkiewicz and Thomas Funkhouser (2020). Spatial Action Maps for Mobile Manipulation. Robotics: Science and Systems XVI.">Wu et al., 2020</a>). Like CAs, the
+        network is convolutional and local; its receptive field is nonetheless wide enough to cover
+        most of the grid. It observes the last four states, so that motion is visible. Goal, action
+        cost, step index and the parameters of the running update rule enter through FiLM
+        conditioning (<a class="cite" href="https://arxiv.org/abs/1709.07871" target="_blank" rel="noopener" data-cite="Ethan Perez, Florian Strub, Harm de Vries, Vincent Dumoulin and Aaron Courville (2018). FiLM: Visual Reasoning with a General Conditioning Layer. Proceedings of the Thirty-Second AAAI Conference on Artificial Intelligence, 3942&#8211;3951. AAAI Press.">Perez et al., 2018</a>), so a single policy of roughly 800K parameters covers the whole
+        goal space and every update rule it was trained on. We train with Double DQN
+        (<a class="cite" href="https://arxiv.org/abs/1509.06461" target="_blank" rel="noopener" data-cite="Hado van Hasselt, Arthur Guez and David Silver (2016). Deep Reinforcement Learning with Double Q-Learning. Proceedings of the Thirtieth AAAI Conference on Artificial Intelligence, 2094&#8211;2100. AAAI Press.">van Hasselt et al., 2016</a>).</p>
       <p>We demonstrate CARL through three experiments.</p>
       <ol class="exps">
         <li><b>Soliton creation.</b> CARL creates stable solitons across a wide range of Lenia
@@ -506,27 +552,27 @@
           systems through CARL agents by modifying their goals in real time, by having users
           navigate solitons through a maze using the movement direction agent.</li>
       </ol>
-      <p>Throughout training, every intervention carries an <b>action cost</b>, sampled per
-        episode alongside the goal. In a system with rich intrinsic dynamics this changes what a
-        good policy looks like. For example, driving the system towards a desired state
-        could be done with continuous interventions, i.e. micromanaging, or with sparse interventions which
-        enable the complex system to do the rest of the work. Action costs tip the
-        balance toward the latter, pushing the agent to act sparsely and to work alongside the
-        system's dynamics rather than against them. It is exactly this mechanism that allows the policy
-        to discover new self-organizing patterns and learn to control them via minimal interventions.</p>
     </div>
 
   </section>
 
-  <section id="creation">
-    <h2>1 &middot; Creating solitons</h2>
-    <p class="sec-ref">Soliton Creation Task &middot; Fig. 3&ndash;4</p>
+  <section id="creation" class="chap-open">
+    <h2 class="chap">Experiments</h2>
+    <h3>1 &middot; Creating solitons</h3>
+    <p class="sec-ref">Soliton Creation Task &middot; Fig. 2&ndash;5</p>
     <p class="lede">
-      Some of key phenomena of interest in Lenia are <b>solitons</b>: localized patterns that persist, and
-      often move, across the grid. They are what the system produces when its dynamics settle into
-      something neither dead nor global &mdash; a coherent structure that holds itself together
-      while the rest of the grid stays empty. Which update rules admit them, and which initial
-      states lead to them, is not something we can read off the rule; it has to be found.
+      The phenomena of primary interest in Lenia are <b>solitons</b>: spatially localized,
+      self-organizing patterns that persist over time and often move across the grid. They
+      are rare. Most initial states instead lead to one of two other outcomes: extinction, in
+      which all activation dissipates, or global, Turing-like patterns that fill the grid.
+      Which update rules admit solitons, and which initial states converge to them,
+      cannot be determined analytically from the rule itself; they must be found empirically.
+      Finding them is correspondingly difficult, and a range of search methods has been developed
+      for the purpose. These span from systematic exploration of the update-rule parameter space,
+      paired with hand-designed initializations of the grid (<a class="cite" href="https://doi.org/10.1162/isal_a_00297" target="_blank" rel="noopener" data-cite="Bert Wang-Chak Chan (2020). Lenia and Expanded Universe. ALIFE 2020: The 2020 Conference on Artificial Life, 221&#8211;229. MIT Press.">Chan, 2020</a>;
+      <a class="cite" href="https://arxiv.org/abs/2601.01932" target="_blank" rel="noopener" data-cite="Barbora Hudcov&aacute;, Franti&scaron;ek Du&scaron;ek, Marco Tuccio and Cl&eacute;ment Hongler (2025). Visualizing the Structure of Lenia Parameter Space. ALIFE 2025: Ciphers of Life: Companion Proceedings of the Artificial Life Conference 2025. MIT Press.">Hudcov&aacute; et al., 2025</a>), to diversity-driven methods that accumulate an archive of
+      distinct behaviors, such as quality-diversity (<a class="cite" href="https://doi.org/10.1162/isal_a_00827" target="_blank" rel="noopener" data-cite="Maxence Faldor and Antoine Cully (2024). Toward Artificial Open-Ended Evolution within Lenia using Quality-Diversity. ALIFE 2024: Proceedings of the 2024 Artificial Life Conference. MIT Press.">Faldor and Cully, 2024</a>) and intrinsically
+      motivated goal exploration processes (<a class="cite" href="https://proceedings.neurips.cc/paper/2020/hash/33a5435d4f945aa6154b31a73bab3b73-Abstract.html" target="_blank" rel="noopener" data-cite="Mayalen Etcheverry, Cl&eacute;ment Moulin-Frier and Pierre-Yves Oudeyer (2020). Hierarchically Organized Latent Modules for Exploratory Search in Morphogenetic Systems. Advances in Neural Information Processing Systems, 33, 4846&#8211;4859. Curran Associates, Inc.">Etcheverry et al., 2020</a>).
     </p>
     <p class="lede">
       To detect solitons, we use a simple filter inspired by prior work (<a class="cite" href="https://doi.org/10.1126/sciadv.adp0834" target="_blank" rel="noopener" data-cite="Gautier Hamon, Mayalen Etcheverry, Bert Wang-Chak Chan, Cl&eacute;ment Moulin-Frier and Pierre-Yves Oudeyer (2025). Discovering sensorimotor agency in cellular automata using diversity search. Science Advances, 11(44), eadp0834.">Hamon et al., 2025</a>; <a class="cite" href="https://doi.org/10.1162/isal_a_00827" target="_blank" rel="noopener" data-cite="Maxence Faldor and Antoine Cully (2024). Toward Artificial Open-Ended Evolution within Lenia using Quality-Diversity. ALIFE 2024: Proceedings of the 2024 Artificial Life Conference. MIT Press.">Faldor and Cully, 2024</a>): after applying the Lenia update
@@ -669,10 +715,12 @@
         agent taken away; both solitons persist. The grid wraps, so a pattern crossing one edge
         reappears at the opposite one.</figcaption>
     </figure>
+
+    <a class="try" href="soliton_creation_demo.html">Create a soliton yourself, in the browser &rarr;</a>
   </section>
 
   <section id="steering">
-    <h2>2 &middot; Steering solitons</h2>
+    <h3>2 &middot; Steering solitons</h3>
     <p class="sec-ref">Soliton Direction Task &middot; Fig. 6</p>
     <p class="lede">
       To demonstrate that CARL can control self-organizing phenomena, not only create them, we train
@@ -731,7 +779,9 @@
         samples frame by frame. <b>Right: the policy generalizes to solitons it has never
         steered.</b> The 48 solitons are split into 24 training and 24 holdout; the circle of target
         directions is split into four quadrants, of which only two opposite ones are used in
-        training. Mean cosine similarity is 0.91&nbsp;&plusmn;&nbsp;0.14 in the training condition
+        training. Each of the four conditions is evaluated over <b>128 episodes</b>, averaging the
+        cosine similarity across all 200 steps of each; error bars are one standard deviation.
+        Mean cosine similarity is 0.91&nbsp;&plusmn;&nbsp;0.14 in the training condition
         and essentially unchanged, 0.91&nbsp;&plusmn;&nbsp;0.10, on unseen solitons &mdash;
         nearly lossless, suggesting the policy captures direction-dependent strategies that transfer
         across soliton morphologies. The drop for unseen <em>directions</em>
@@ -744,7 +794,7 @@
   </section>
 
   <section id="human">
-    <h2>3 &middot; A human in the loop</h2>
+    <h3>3 &middot; A human in the loop</h3>
     <p class="sec-ref">Human-in-the-Loop &middot; Fig. 7</p>
     <p class="lede">
       We demonstrate how trained CARL agents can serve as real-time interfaces for human control. We
@@ -848,20 +898,47 @@
     </p>
   </section>
 
+  <section id="ack">
+    <h2>Acknowledgements</h2>
+    <p class="lede">
+      We thank Barbora Hudcov&aacute; for insightful discussions and guidance in navigating the
+      <a href="https://lenia-explorer.vercel.app/" target="_blank" rel="noopener">Lenia Explorer</a>
+      dataset. We thank members of the Flowers AI and CogSci Lab and the Levin Lab for helpful
+      discussions.
+    </p>
+    <p class="lede">
+      We gratefully acknowledge support for this work provided through a sponsored research
+      agreement with Astonishing Labs and from the Templeton World Charity Foundation, Inc.
+      (Grant ID: TWCF-2021-20606).
+    </p>
+    <p class="meta" style="max-width:var(--col);margin-top:14px">
+      The opinions expressed in this publication are those of the authors and do not necessarily
+      reflect the views of the funding agencies.
+    </p>
+    <p class="meta" style="max-width:var(--col);margin-top:10px">
+      The authors used generative AI tools to assist with writing the manuscript, developing
+      experiment code and this companion website. All outputs were reviewed by the authors, who
+      take full responsibility for the content.
+    </p>
+  </section>
+
   <section id="cite">
     <h2>Citation</h2>
     <pre class="bibtex">@inproceedings{cvjetko2026carl,
   title     = {The Artificial Experimentalist: Discovery and Control of
                Self-Organizing Phenomena with Autotelic Reinforcement Learning},
   author    = {Cvjetko, Marko and Hartl, Benedikt and Levin, Michael and
-               Moulin-Frier, Cl{\'e}ment and Oudeyer, Pierre-Yves},
-  booktitle = {Proceedings of the Artificial Life Conference (ALife)},
+               Moulin-Frier, Clément and Oudeyer, Pierre-Yves},
+  booktitle = {ALIFE 2026: Proceedings of the 2026 Artificial Life Conference},
   address   = {Toronto, Canada},
-  year      = {2026}
+  publisher = {MIT Press},
+  pages     = {45},
+  year      = {2026},
+  doi       = {10.1162/ISAL.a.971}
 }</pre>
     <p class="lede" style="margin-top:14px">
       Code and data: <a href="https://github.com/markocvjetko/carl-release" target="_blank" rel="noopener">github.com/markocvjetko/carl-release</a>.
-      Preprint: <a href="https://hal.science/hal-05698778v1" target="_blank" rel="noopener">hal-05698778</a>.
+      Paper: <a href="https://direct.mit.edu/isal/proceedings/isal2026/38/45/138193" target="_blank" rel="noopener">ALife 2026 proceedings</a>.
       Corresponding author: <a href="mailto:marko.cvjetko@inria.fr">marko.cvjetko@inria.fr</a>.
     </p>
   </section>
