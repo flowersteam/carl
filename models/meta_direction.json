@@ -1,6 +1,6 @@
 {
  "task": "direction",
- "run": "immediate-hypothesis (canonical direction run, Fig 7-8)",
+ "run": "immediate-hypothesis (canonical direction run)",
  "checkpoint": "model_step_800000.pth",
  "board_size": [
   115,

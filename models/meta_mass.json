@@ -1,6 +1,6 @@
 {
  "task": "mass",
- "run": "fresh-parody (canonical mass run, Figs 2-6)",
+ "run": "fresh-parody (canonical mass run)",
  "checkpoint": "model_step_1800000.pth",
  "board_size": [
   64,
