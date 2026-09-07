@@ -81,10 +81,21 @@
     -webkit-hyphens:auto;hyphens:auto}
   /* Too narrow a measure to justify without visible word gaps. */
   @media(max-width:640px){p,.lede,.abstract,.cover-note,figcaption{text-align:left}}
-  .lede b{color:var(--ink);font-weight:600}
+  .lede b,.blist b{color:var(--ink);font-weight:600}
+  /* A list set in the body voice: same measure, size and ink as .lede, so an enumeration
+     reads as part of the prose around it rather than as an inserted block. Left ragged --
+     justifying short list items opens rivers the paragraphs do not have. */
+  .blist{margin:0 0 14px;padding-left:22px;max-width:var(--col);
+    font-size:19px;color:var(--muted)}
+  .blist li{margin-bottom:6px}
   p{max-width:var(--col)}
   .sec-ref{font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--faint);
     letter-spacing:.04em;margin:0 0 12px}
+  /* Each experiment runs setup first, then findings. The subhead marks that turn in the same
+     type as the section headings, one rank down -- air and size carry the change, since the
+     hairline is the chapter marker's job. */
+  .subhead{font-family:"Fraunces",serif;font-weight:600;font-size:20px;letter-spacing:-.01em;
+    max-width:var(--col);margin:30px 0 12px}
 
   figure{margin:0 0 14px;max-width:var(--col)}
   .screen{background:#000;border:1px solid var(--line);border-radius:12px;overflow:hidden;
@@ -95,7 +106,7 @@
   .plate{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;
     box-shadow:var(--shadow);line-height:0}
   .plate img,.plate video{display:block;width:100%}
-  .plate.chart{max-width:780px}
+  .plate.chart{max-width:780px;margin-inline:auto}
   figcaption{margin-top:9px;font-size:15.5px;color:var(--muted);max-width:var(--col);line-height:1.55}
   figcaption b{color:var(--ink);font-weight:600}
   .pair{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:var(--col)}
@@ -202,9 +213,15 @@
   .exps{margin:10px 0 16px;padding-left:22px}
   .exps li{margin-bottom:7px}
   .strip{display:grid;grid-template-columns:repeat(6,1fr);gap:9px}
+  /* Soliton gallery: the same tiles the strips use, packed tighter because these are
+     specimens to scan rather than frames to read in order. */
+  .gallery{display:grid;grid-template-columns:repeat(10,1fr);gap:7px;max-width:var(--col)}
+  /* 21 tiles: seven across on the full measure, three when narrow -- both divide
+     evenly, so the last row is never left with a lone tile. */
+  .gallery.g7{grid-template-columns:repeat(7,1fr)}
   .frame{position:relative;border-radius:9px;overflow:hidden;background:#000;
     border:1px solid var(--line2);aspect-ratio:1}
-  .frame img{display:block;width:100%;height:100%;object-fit:cover}
+  .frame img,.frame video{display:block;width:100%;height:100%;object-fit:cover}
   .frame .t{position:absolute;left:6px;top:6px;font-family:"IBM Plex Mono",monospace;
     font-size:12.5px;color:#fff;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.22);
     border-radius:5px;padding:1px 6px;line-height:1.35}
@@ -252,6 +269,8 @@
     max-width:none;margin-inline:calc(-1 * var(--breakout))}
   @media(max-width:900px){
     .strip{grid-template-columns:repeat(3,1fr)}
+    .gallery{grid-template-columns:repeat(5,1fr)}
+    .gallery.g7{grid-template-columns:repeat(3,1fr)}
     .clips{grid-template-columns:1fr;gap:18px}
   }
 
@@ -562,20 +581,20 @@
     <p class="sec-ref">Soliton Creation Task &middot; Fig. 2&ndash;5</p>
     <p class="lede">
       The phenomena of primary interest in Lenia are <b>solitons</b>: spatially localized,
-      self-organizing patterns that persist over time and often move across the grid. They
-      are rare. Most initial states instead lead to one of two other outcomes: extinction, in
-      which all activation dissipates, or global, Turing-like patterns that fill the grid.
-      Which update rules admit solitons, and which initial states converge to them,
-      cannot be determined analytically from the rule itself; they must be found empirically.
-      Finding them is correspondingly difficult, and a range of search methods has been developed
-      for the purpose. These span from systematic exploration of the update-rule parameter space,
+      self-organizing patterns that persist over time and often move across the grid. Solitons
+      are not easy to discover; most initial states and update rules result either in dead worlds or global, 
+      Turing-like patterns that fill the whole grid.
+      A range of search methods have been developed
+      for the purpose of discovering solitons. These span from systematic exploration of the update-rule parameter space,
       paired with hand-designed initializations of the grid (<a class="cite" href="https://doi.org/10.1162/isal_a_00297" target="_blank" rel="noopener" data-cite="Bert Wang-Chak Chan (2020). Lenia and Expanded Universe. ALIFE 2020: The 2020 Conference on Artificial Life, 221&#8211;229. MIT Press.">Chan, 2020</a>;
-      <a class="cite" href="https://arxiv.org/abs/2601.01932" target="_blank" rel="noopener" data-cite="Barbora Hudcov&aacute;, Franti&scaron;ek Du&scaron;ek, Marco Tuccio and Cl&eacute;ment Hongler (2025). Visualizing the Structure of Lenia Parameter Space. ALIFE 2025: Ciphers of Life: Companion Proceedings of the Artificial Life Conference 2025. MIT Press.">Hudcov&aacute; et al., 2025</a>), to diversity-driven methods that accumulate an archive of
-      distinct behaviors, such as quality-diversity (<a class="cite" href="https://doi.org/10.1162/isal_a_00827" target="_blank" rel="noopener" data-cite="Maxence Faldor and Antoine Cully (2024). Toward Artificial Open-Ended Evolution within Lenia using Quality-Diversity. ALIFE 2024: Proceedings of the 2024 Artificial Life Conference. MIT Press.">Faldor and Cully, 2024</a>) and intrinsically
-      motivated goal exploration processes (<a class="cite" href="https://proceedings.neurips.cc/paper/2020/hash/33a5435d4f945aa6154b31a73bab3b73-Abstract.html" target="_blank" rel="noopener" data-cite="Mayalen Etcheverry, Cl&eacute;ment Moulin-Frier and Pierre-Yves Oudeyer (2020). Hierarchically Organized Latent Modules for Exploratory Search in Morphogenetic Systems. Advances in Neural Information Processing Systems, 33, 4846&#8211;4859. Curran Associates, Inc.">Etcheverry et al., 2020</a>).
+      <a class="cite" href="https://arxiv.org/abs/2601.01932" target="_blank" rel="noopener" data-cite="Barbora Hudcov&aacute;, Franti&scaron;ek Du&scaron;ek, Marco Tuccio and Cl&eacute;ment Hongler (2025). Visualizing the Structure of Lenia Parameter Space. ALIFE 2025: Ciphers of Life: Companion Proceedings of the Artificial Life Conference 2025. MIT Press.">Hudcov&aacute; et al., 2025</a>)
+      , to population-based diversity search methods that accumulate an archive of
+      distinct behaviors, such as intrinsically
+      motivated goal exploration processes (<a class="cite" href="https://proceedings.neurips.cc/paper/2020/hash/33a5435d4f945aa6154b31a73bab3b73-Abstract.html" target="_blank" rel="noopener" data-cite="Mayalen Etcheverry, Cl&eacute;ment Moulin-Frier and Pierre-Yves Oudeyer (2020). Hierarchically Organized Latent Modules for Exploratory Search in Morphogenetic Systems. Advances in Neural Information Processing Systems, 33, 4846&#8211;4859. Curran Associates, Inc.">Etcheverry et al., 2020</a>)
+       and quality-diversity (<a class="cite" href="https://doi.org/10.1162/isal_a_00827" target="_blank" rel="noopener" data-cite="Maxence Faldor and Antoine Cully (2024). Toward Artificial Open-Ended Evolution within Lenia using Quality-Diversity. ALIFE 2024: Proceedings of the 2024 Artificial Life Conference. MIT Press.">Faldor and Cully, 2024</a>).
     </p>
     <p class="lede">
-      To detect solitons, we use a simple filter inspired by prior work (<a class="cite" href="https://doi.org/10.1126/sciadv.adp0834" target="_blank" rel="noopener" data-cite="Gautier Hamon, Mayalen Etcheverry, Bert Wang-Chak Chan, Cl&eacute;ment Moulin-Frier and Pierre-Yves Oudeyer (2025). Discovering sensorimotor agency in cellular automata using diversity search. Science Advances, 11(44), eadp0834.">Hamon et al., 2025</a>; <a class="cite" href="https://doi.org/10.1162/isal_a_00827" target="_blank" rel="noopener" data-cite="Maxence Faldor and Antoine Cully (2024). Toward Artificial Open-Ended Evolution within Lenia using Quality-Diversity. ALIFE 2024: Proceedings of the 2024 Artificial Life Conference. MIT Press.">Faldor and Cully, 2024</a>): after applying the Lenia update
+      To detect whether a soliton is present on the grid, we use a simple filter inspired by prior work (<a class="cite" href="https://doi.org/10.1126/sciadv.adp0834" target="_blank" rel="noopener" data-cite="Gautier Hamon, Mayalen Etcheverry, Bert Wang-Chak Chan, Cl&eacute;ment Moulin-Frier and Pierre-Yves Oudeyer (2025). Discovering sensorimotor agency in cellular automata using diversity search. Science Advances, 11(44), eadp0834.">Hamon et al., 2025</a>; <a class="cite" href="https://doi.org/10.1162/isal_a_00827" target="_blank" rel="noopener" data-cite="Maxence Faldor and Antoine Cully (2024). Toward Artificial Open-Ended Evolution within Lenia using Quality-Diversity. ALIFE 2024: Proceedings of the 2024 Artificial Life Conference. MIT Press.">Faldor and Cully, 2024</a>): after applying the Lenia update
       rule for 5,000 steps without intervention, we classify the resulting state as containing a
       soliton if its total mass is non-zero and below 10% of the grid capacity. We omit 
       additional checks used in prior
@@ -616,8 +635,8 @@
       <span class="var">&#x1D4A2; = &#x1D4AF; &times; &#x1D49E; &times; &Omega;</span>, where
       <span class="var">&#x1D4AF;</span> is the set of target masses, <span class="var">&#x1D49E;</span>
       the set of action costs, and <span class="var">&Omega;</span> the set of update rules. At the
-      start of each episode, CARL samples a goal <span class="var">g = (&tau;, c, &omega;)</span>
-      uniformly, with <span class="var">&tau; &isin; [0, 200]</span>,
+      start of each episode, CARL uniformly samples a goal <span class="var">g = (&tau;, c, &omega;)</span>, 
+      with <span class="var">&tau; &isin; [0, 200]</span>,
       <span class="var">c &isin; [0, 0.2]</span>, and <span class="var">&omega;</span> drawn from a
       set of training update rules. The reward at each step is
     </p>
@@ -655,20 +674,10 @@
         intervening.</figcaption>
     </figure>
 
-    <figure>
-      <div class="plate">
-        <video autoplay muted playsinline loop preload="none"
-          aria-label="Forty Lenia boards, each running a different update rule, played through three phases: the agent intervening for 150 steps, then 5,000 steps of free evolution under the soliton filter, then 1,000 further steps. Most boards end holding a single localized pattern."><source src="assets/videos/curated_solitons.mp4" type="video/mp4"></video>
-      </div>
-      <figcaption><b>Forty episodes, start to finish.</b> Each board runs a different update rule.
-        In the first phase CARL is acting &mdash; the same 150 steps the strip above shows frame by
-        frame. Then the agent is taken away and the state is left to evolve on its own: 5,000 steps
-        for the soliton filter, and 1,000 beyond it. Whatever is still on the board at the end is
-        holding itself there.</figcaption>
-    </figure>
+    <h4 class="subhead">Results</h4>
 
     <p class="lede">
-      <b>Mass tracking evaluation:</b> We evaluate the trained agent on the Cartesian
+      <b>Mass tracking evaluation.</b> We evaluate the trained agent on the Cartesian
       product of target masses <span class="var">&tau; &isin; {0, 25, &hellip;, 400}</span>, action
       costs <span class="var">c &isin; {0, 0.05, &hellip;, 0.4}</span>, and all 85 training update
       rules, running 16 episodes per combination. Both <span class="var">&tau;</span> and
@@ -714,6 +723,144 @@
         a different update rule, first the agent's episode and then the free-evolution phase with the
         agent taken away; both solitons persist. The grid wraps, so a pattern crossing one edge
         reappears at the opposite one.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="plate">
+        <video autoplay muted playsinline loop preload="none"
+          aria-label="Forty hand-selected successful episodes, each on a different update rule, played through three phases: the agent intervening for 150 steps, then 5,000 steps of free evolution under the soliton filter, then 1,000 further steps. Each board ends holding a localized pattern."><source src="assets/videos/curated_solitons.mp4" type="video/mp4"></video>
+      </div>
+      <figcaption><b>Forty successful episodes, start to finish.</b> Hand-selected runs in which
+        the trained agent produced a soliton, each under a different training update rule. The agent
+        acts for the first 150 steps; the final state is then rolled out for 5,000 Lenia steps
+        without any agent intervention and passed to the soliton filter, with a further 1,000 steps
+        beyond it. These show what a success looks like across rules; the rate at which successes
+        occur is given by the sweep above.</figcaption>
+    </figure>
+
+
+    <p class="lede">
+      <b>Comparison with baselines.</b> We compare CARL against several heuristic baselines across
+      all training update rules, with a fixed action cost of <span class="var">c = 0.1</span> and
+      mass targets <span class="var">&tau; &isin; {50, 100, 150, 200}</span>:
+    </p>
+    <ul class="blist">
+      <li><b>No-op.</b> Always selects no-op.</li>
+      <li><b>Random.</b> Random action type and location.</li>
+      <li><b>Mass-based.</b> Adds or removes mass toward the target, placed randomly or at
+        locations of existing mass.</li>
+      <li><b>Mass-based with threshold.</b> The same, but only acting when mass deviates by more
+        than 10% from the target.</li>
+    </ul>
+
+    <figure>
+      <div class="plate chart"><img src="assets/figures/selforg_comparison.svg" loading="lazy" alt="Bar chart comparing CARL against six heuristic baselines on episode success rate and rule coverage. CARL leads on both, at 31.2 percent and 64.7 percent."></div>
+      <figcaption><b>CARL outperforms every baseline</b>, both in the overall soliton creation rate
+        and in the number of update rules for which at least one soliton is generated. The gap is
+        particularly notable against the mass-based heuristics, which have access to the same mass
+        information as CARL but lack spatial awareness: they cannot learn <em>where</em> to place
+        mass to seed a viable pattern. The no-op baseline confirms that solitons rarely arise from
+        random initial conditions alone, underscoring that the agent's interventions are
+        essential.</figcaption>
+    </figure>
+
+    <p class="lede">
+      <b>Generalization.</b> The results above show that CARL reliably creates solitons under
+      training conditions. We now assess how robust this capability is along three axes: modified
+      action parameters, rescaled update rule kernels, and entirely novel update rules.
+    </p>
+    <p class="lede">
+      For <b>modified action parameters</b>, we change the action hyperparameters
+      <span class="var">R<sub>a</sub></span> and <span class="var">M<sub>a</sub></span> at test
+      time, with <span class="var">&tau; = 125</span> and <span class="var">c = 0.1</span> fixed.
+      The agent does not observe these hyperparameters. For a <b>rescaled kernel radius</b>, we
+      deploy the agent across <span class="var">&rho; &isin; {4, 6, 8, &hellip;, 26}</span>,
+      proportionally adjusting the action radius and grid size (linearly) and the target masses
+      (quadratically), so that the ratio between action scale, target mass and pattern size stays
+      roughly constant. This is a demanding form of generalization: rescaling the kernel does not
+      simply scale the emerging patterns, but can fundamentally alter their behavior due to
+      discretization effects. Since the policy network is fully convolutional, it can be deployed on
+      different grid sizes without modification.
+    </p>
+
+    <figure class="keyfig">
+      <div class="pair vg" style="--vg:1.2fr 1fr">
+        <div class="plate"><img src="assets/figures/action_gen_soliton_pct.svg" loading="lazy" alt="Heatmap of soliton creation rate over action radius and action magnitude, with a red square marking the training condition. A bright band runs along the curve where the product of the two is constant."></div>
+        <div class="plate"><img src="assets/figures/unseen_radii_soliton_pct.svg" loading="lazy" alt="Line plot of soliton formation rate against kernel radius for CARL, the best heuristic baseline, and no-op. CARL peaks at the training radius and stays above both baselines everywhere."></div>
+      </div>
+      <div class="key-row">
+        <span class="item"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" style="color:var(--k-box)"><rect x="4.6" y="4.6" width="10.8" height="10.8" fill="none" stroke="currentColor" stroke-width="2.4"/></svg><span>Action radius and magnitude seen in training; outside it is test time only</span></span>
+      </div>
+      <figcaption><b>Left: the agent adapts to action parameters it never saw.</b> Performance holds
+        where <span class="var">R<sub>a</sub> &middot; M<sub>a</sub></span> is close to its training
+        value &mdash; that is, where the integrated effect of each action matches training
+        conditions &mdash; and degrades gracefully away from that curve. It drops to zero only for
+        low-impact settings, where individual actions are too weak to seed or sustain any mass.
+        <b>Right: and to Lenia worlds at other scales.</b> Performance drops away from the training
+        radius, but the agent still creates solitons at a relatively high rate even for kernels
+        double or half the training size, remaining well above the no-op baseline across all tested
+        radii. The drop is sharper for down-scaled kernels, likely due to discretization
+        effects.</figcaption>
+    </figure>
+
+    <p class="lede">
+      <b>Novel update rules.</b> Finally, we deploy CARL on unseen convolutional kernels. We select
+      seven kernels <span class="var">K</span> not included in the training set and sweep across
+      growth function parameters <span class="var">&mu; &isin; {0.2, 0.205, &hellip;, 0.4}</span> and
+      <span class="var">&sigma; &isin; {0.02, 0.022, &hellip;, 0.06}</span>, with
+      <span class="var">&tau; &isin; {50, 100, 150, 200, 250}</span> and
+      <span class="var">c = 0.1</span>, at kernel radii
+      <span class="var">&rho; &isin; {10, 14, 18}</span>.
+    </p>
+
+    <figure>
+      <div class="pair">
+        <div class="plate"><img src="assets/figures/novel_rules_grid_soliton_pct.svg" loading="lazy" alt="A three by three grid of heatmaps over growth centre mu and growth width sigma, for three unseen kernels and three kernel radii, showing where solitons form."></div>
+        <div class="plate"><img src="assets/figures/novel_rules_grid_mean_final_mass_soliton.svg" loading="lazy" alt="The same three by three grid, showing mean soliton mass instead of formation rate."></div>
+      </div>
+      <figcaption><b>A trained agent maps an unseen rule space in a single sweep.</b> Left:
+        likelihood of soliton creation as a function of the growth function parameters
+        <span class="var">(&mu;, &sigma;)</span>, for a fixed kernel and radius. Right: mean soliton
+        mass under the same conditions. The agent discovers solitons across a range of unseen
+        kernels, though the success rate varies considerably from kernel to kernel &mdash; some
+        admit large regions of soliton-supporting parameters, while others are far more
+        restrictive.</figcaption>
+    </figure>
+
+    <figure>
+      <div class="gallery g7" aria-label="Twenty-one Lenia boards, each running an update rule outside the training set, ordered by growth centre and growth width.">
+        <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.2000, sigma 0.0280."><source src="assets/videos/novel-rules/soliton_mu0.2000_sigma0.0280.mp4" type="video/mp4"></video></div>
+        <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.2200, sigma 0.0320."><source src="assets/videos/novel-rules/7_soliton_mu0.2200_sigma0.0320.mp4" type="video/mp4"></video></div>
+        <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.2400, sigma 0.0320."><source src="assets/videos/novel-rules/soliton_mu0.2400_sigma0.0320.mp4" type="video/mp4"></video></div>
+        <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.2400, sigma 0.0340."><source src="assets/videos/novel-rules/soliton_mu0.2400_sigma0.0340.mp4" type="video/mp4"></video></div>
+        <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.2500, sigma 0.0380."><source src="assets/videos/novel-rules/soliton_mu0.2500_sigma0.0380.mp4" type="video/mp4"></video></div>
+        <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.2600, sigma 0.0320."><source src="assets/videos/novel-rules/6_soliton_mu0.2600_sigma0.0320.mp4" type="video/mp4"></video></div>
+        <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.2800, sigma 0.0360."><source src="assets/videos/novel-rules/soliton_mu0.2800_sigma0.0360.mp4" type="video/mp4"></video></div>
+        <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.2800, sigma 0.0420."><source src="assets/videos/novel-rules/soliton_mu0.2800_sigma0.0420.mp4" type="video/mp4"></video></div>
+        <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.2900, sigma 0.0380."><source src="assets/videos/novel-rules/soliton_mu0.2900_sigma0.0380.mp4" type="video/mp4"></video></div>
+        <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.3000, sigma 0.0380."><source src="assets/videos/novel-rules/soliton_mu0.3000_sigma0.0380.mp4" type="video/mp4"></video></div>
+        <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.3000, sigma 0.0400."><source src="assets/videos/novel-rules/5_soliton_mu0.3000_sigma0.0400.mp4" type="video/mp4"></video></div>
+        <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.3000, sigma 0.0500."><source src="assets/videos/novel-rules/0_soliton_mu0.3000_sigma0.0500.mp4" type="video/mp4"></video></div>
+        <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.3100, sigma 0.0340."><source src="assets/videos/novel-rules/soliton_mu0.3100_sigma0.0340.mp4" type="video/mp4"></video></div>
+        <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.3100, sigma 0.0520."><source src="assets/videos/novel-rules/soliton_mu0.3100_sigma0.0520.mp4" type="video/mp4"></video></div>
+        <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.3100, sigma 0.0540."><source src="assets/videos/novel-rules/soliton_mu0.3100_sigma0.0540.mp4" type="video/mp4"></video></div>
+        <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.3200, sigma 0.0520."><source src="assets/videos/novel-rules/2_soliton_mu0.3200_sigma0.0520.mp4" type="video/mp4"></video></div>
+        <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.3200, sigma 0.0540."><source src="assets/videos/novel-rules/3_soliton_mu0.3200_sigma0.0540.mp4" type="video/mp4"></video></div>
+        <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.3300, sigma 0.0480."><source src="assets/videos/novel-rules/soliton_mu0.3300_sigma0.0480.mp4" type="video/mp4"></video></div>
+        <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.3300, sigma 0.0580."><source src="assets/videos/novel-rules/4_soliton_mu0.3300_sigma0.0580.mp4" type="video/mp4"></video></div>
+        <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.3400, sigma 0.0560."><source src="assets/videos/novel-rules/1_soliton_mu0.3400_sigma0.0560.mp4" type="video/mp4"></video></div>
+        <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.3600, sigma 0.0580."><source src="assets/videos/novel-rules/soliton_mu0.3600_sigma0.0580.mp4" type="video/mp4"></video></div>
+      </div>
+      <figcaption><b>Patterns the agent produces in update rules it was never trained on.</b>
+        Each board is one episode under a different <span class="var">(K, &mu;, &sigma;)</span>
+        combination at <span class="var">&rho; = 18</span>, running through the agent's intervention
+        and on into the soliton filter period; tiles are ordered by
+        <span class="var">&mu;</span>, then <span class="var">&sigma;</span>. Most settle into a
+        single localized soliton, several of them structured &mdash; concentric rings, lobed
+        shells, a gear. A few do not: at
+        <span class="var">(&mu;, &sigma;) = (0.28, 0.036)</span>, (0.30, 0.040) and (0.33, 0.058)
+        the pattern extends into a chain or a band that spans the grid, which the soliton filter
+        rejects.</figcaption>
     </figure>
 
     <a class="try" href="soliton_creation_demo.html">Create a soliton yourself, in the browser &rarr;</a>
