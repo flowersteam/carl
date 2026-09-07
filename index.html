@@ -680,6 +680,20 @@
       episodes pressure it to find self-sustaining ones.
     </p>
 
+    <!-- Which rules the agent trains on: reference material rather than a result, so it sits
+         folded away here, at the point where the goal space introduces the update rule set. -->
+    <details>
+      <summary><span>Which update rules the agent trains on</span></summary>
+      <figure style="margin:14px 0 0">
+        <div class="plate chart"><img src="assets/figures/mass_training_rules_by_kernel.svg" loading="lazy"
+          alt="Scatter of the 85 training update rules in growth-width sigma by growth-centre mu, marked by which of six kernels each uses. The rules follow a rising band."></div>
+        <figcaption><b>The 85 training update rules.</b> Each point is one rule, positioned by its
+          growth parameters and marked by its kernel <span class="var">&beta;</span>. They trace a
+          narrow band &mdash; wider growth needs a higher centre to stay in the regime where
+          patterns survive.</figcaption>
+      </figure>
+    </details>
+
     <figure class="keyfig">
       <div class="strip">
         <div class="frame"><img src="banner/frames/create_t0.png" alt=""><span class="t">t = 0</span></div>
@@ -747,16 +761,10 @@
         </div>
       </div>
       <figcaption class="split vg">
-        <div><b>The solitons carry the mass they were asked for.</b> Mean soliton mass climbs
-          steadily with the target and barely responds to the action cost; white cells are
-          conditions where no soliton formed at all. Toward the top of the range it falls
-          increasingly short of the target &mdash; the signature of that mass being split across
-          more than one pattern.</div>
-        <div><b>That split, in four episodes.</b> Rather than build one massive soliton, the agent
-          seeds <em>two</em>, whose masses together meet the target. Each board runs a different
-          update rule, first the agent's episode and then the free-evolution phase with the agent
-          taken away; both solitons persist. The grid wraps, so a pattern crossing one edge
-          reappears at the opposite one.</div>
+        <div><b>Soliton mass tracks the target.</b> The mass of created solitons correlates well 
+        with the sampled target mass.</div>
+        <div><b>CARL creates multiple solitons.</b> Rather than create one large pattern, the agent 
+          often seeds multiple patterns whose masses sum to the target.</div>
       </figcaption>
     </figure>
 
@@ -767,7 +775,7 @@
       mass targets <span class="var">&tau; &isin; {50, 100, 150, 200}</span>:
     </p>
     <ul class="blist">
-      <li><b>No-op.</b> Always selects no-op.</li>
+      <li><b>No-op.</b> This baseline measures how often the initial conditions alone produce solitons.</li>
       <li><b>Random.</b> Random action type and location.</li>
       <li><b>Mass-based.</b> Adds or removes mass toward the target, placed randomly or at
         locations of existing mass.</li>
