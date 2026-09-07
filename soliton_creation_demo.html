@@ -315,15 +315,21 @@
       (continuous cellular automaton) towards desired states through a sequence of local interventions.
       In this demo, CARL was trained to drive the grid's <b>total mass</b> towards some target value.
       At each step, CARL can select a spot on the board and either inject or erase mass there.
-      <b>Drag the target &tau; and watch CARL chase it, or pick a soliton recipe to see what it can grow.</b></p>
+      The reward makes no reference to shape or structure, but because actions are costly, a
+      self-sustaining configuration that matches the target is cheaper than intervening indefinitely.
+      Soliton creation therefore emerges as a byproduct of reward maximization: the agent builds a
+      localized, persistent pattern, a soliton, and stops acting once it holds the target mass
+      on its own.
+      <b>Drag the target &tau; and watch CARL chase it, or pick a soliton recipe (hand-selected hyperparameters) 
+        to see what it can grow.</b></p>
     <p class="hint">Hover the <span class="info-badge" tabindex="0" role="note"
       data-tip="Just like this one. Badges sit next to controls and explain what they do and
                 which values CARL was trained on.">?</span> badges next to the controls for more detail.</p>
     <nav class="intro-links" aria-label="Project links">
       <a href="index.html">Main page</a>
       <a href="https://direct.mit.edu/isal/proceedings/isal2026/38/45/138193" target="_blank" rel="noopener">Paper</a>
-      <a href="soliton_steering_demo.html">Soliton steering demo</a>
       <a href="https://github.com/markocvjetko/carl-release" target="_blank" rel="noopener">Code</a>
+      <a href="soliton_steering_demo.html">Soliton steering demo</a>
     </nav>
   </div>
   <p class="notice">

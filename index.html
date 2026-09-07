@@ -23,8 +23,6 @@
     --k-add:#12a312;--k-del:#d31414;--k-tgt:#1f74c9;--k-cur:#bf7300;--k-box:#d31414;
     --shadow:0 20px 60px -30px rgba(60,20,40,.18);
     --col:1000px;
-    /* How far the cover clips (and their note) escape the wrap on each side. */
-    --breakout:clamp(0px,(100vw - 1160px)/2 - 28px,150px);
   }
   :root[data-theme="dark"]{
     --bg:#0b0710;--raised:#150c20;--line:#2a1d3a;--line2:#3b2a4d;
@@ -53,7 +51,7 @@
      itself -- what the work actually is -- carries the visual weight. */
   h1{font-family:"Fraunces",serif;font-weight:600;letter-spacing:-.015em;line-height:1.18;
      font-size:clamp(28px,3.5vw,40px);margin:0 0 12px;max-width:var(--col)}
-  .kicker{display:block;font-family:inherit;font-weight:600;font-size:17px;line-height:1.3;
+  .kicker{display:block;font-family:inherit;font-weight:600;font-size:24px;line-height:1.3;
      letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
 
   h2,h3{font-family:"Fraunces",serif;font-weight:600;font-size:25px;letter-spacing:-.01em;
@@ -70,17 +68,22 @@
 
   /* Link row: plain text links with a hairline underline, the same treatment the two demo
      pages use for their project links, so the three pages read as one site. */
-  .links{display:flex;flex-wrap:wrap;gap:5px 18px;margin:16px 0 0;font-size:16px}
+  .links{display:flex;flex-wrap:wrap;align-items:center;gap:9px 18px;margin:16px 0 0;font-size:16px}
   .links a{text-decoration:none;border-bottom:1px solid var(--line2);padding-bottom:1px}
   .links a:hover{border-bottom-color:var(--accent)}
+  /* The demos are the one thing here the PDF cannot give you, so they read as chips rather
+     than as two more quiet links in the row. */
+  .links a.demo{border:1px solid var(--accent);border-bottom-color:var(--accent);border-radius:999px;
+    padding:5px 14px;color:var(--accent);font-weight:500;line-height:1.3}
+  .links a.demo:hover{background:var(--accent);color:var(--bg);border-color:var(--accent)}
 
   section{margin:52px 0 0;scroll-margin-top:20px}
   .lede{font-size:19px;color:var(--muted);max-width:var(--col);margin:0 0 14px}
   /* Justified, with hyphenation -- without it the ragged-right gaps become rivers. */
-  p,.lede,.abstract,.cover-note,figcaption{text-align:justify;
+  p,.lede,.abstract,figcaption{text-align:justify;
     -webkit-hyphens:auto;hyphens:auto}
   /* Too narrow a measure to justify without visible word gaps. */
-  @media(max-width:640px){p,.lede,.abstract,.cover-note,figcaption{text-align:left}}
+  @media(max-width:640px){p,.lede,.abstract,figcaption{text-align:left}}
   .lede b,.blist b{color:var(--ink);font-weight:600}
   /* A list set in the body voice: same measure, size and ink as .lede, so an enumeration
      reads as part of the prose around it rather than as an inserted block. Left ragged --
@@ -89,8 +92,6 @@
     font-size:19px;color:var(--muted)}
   .blist li{margin-bottom:6px}
   p{max-width:var(--col)}
-  .sec-ref{font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--faint);
-    letter-spacing:.04em;margin:0 0 12px}
   /* Each experiment runs setup first, then findings. The subhead marks that turn in the same
      type as the section headings, one rank down -- air and size carry the change, since the
      hairline is the chapter marker's job. */
@@ -126,6 +127,37 @@
   /* Follow each pair's own stacking breakpoint, so caption and panels collapse together. */
   @media(max-width:760px){figcaption.split.vg{grid-template-columns:1fr;column-gap:14px}}
   @media(max-width:700px){figcaption.split{grid-template-columns:1fr;column-gap:14px}}
+  /* A chart that used to share a row with another now stands alone in its dropdown: hold it
+     near the width it had as half of a pair rather than letting one plot run the full measure. */
+  .plate.solo{max-width:430px;margin-inline:auto}
+  /* Narrowing the chart leaves room to its side, so its key and caption read there -- inside
+     the panel -- rather than running the full width underneath it or, as .keyfig's note does
+     on wide viewports, escaping into the page margin. The chart spans both rows of a two
+     column grid; the key takes the first row of the second column and the caption the second.
+     A figure with no key simply leaves that first row empty and the caption centres. */
+  .sidefig{display:grid;justify-content:center;align-items:center;max-width:var(--col);
+    grid-template-columns:minmax(0,430px) minmax(0,400px);grid-template-rows:auto auto;
+    gap:14px 26px}
+  .sidefig>.plate.solo{grid-area:1/1/3/2;max-width:none;margin:0}
+  /* With no key the caption takes the whole side column and centres against the chart. */
+  .sidefig>figcaption{grid-area:1/2/3/3;margin:0;text-align:left}
+  /* With a key it takes the upper row and the caption the lower, but each pulls toward the
+     row boundary so the two read as one block rather than drifting to opposite ends. */
+  .sidefig:has(.key-row)>.key-row{grid-area:1/2/2/3;align-self:end}
+  .sidefig:has(.key-row)>figcaption{grid-area:2/2/3/3;align-self:start}
+  .sidefig>.key-row{flex-direction:column;align-items:flex-start;gap:10px}
+  /* The label wraps beside the chart, so its swatch aligns with the first line rather than
+     floating against the middle of the block. */
+  .sidefig>.key-row .item{font-size:14.5px;line-height:1.45;align-items:flex-start}
+  .sidefig>.key-row .item svg{margin-top:1px}
+  /* Too narrow for a side column: the chart, key and caption stack in reading order. */
+  @media(max-width:860px){
+    .sidefig{grid-template-columns:minmax(0,1fr);grid-template-rows:auto;gap:10px}
+    .sidefig>.plate.solo{grid-area:auto;max-width:430px;margin-inline:auto}
+    .sidefig>.key-row,.sidefig>figcaption,
+    .sidefig:has(.key-row)>.key-row,.sidefig:has(.key-row)>figcaption{grid-area:auto;align-self:auto}
+    .sidefig>.key-row{flex-direction:row;align-items:center}
+  }
   .pair{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:var(--col);
     margin-bottom:36px}
   /* Two figures side by side close at the pair's edge rather than each trailing its own space,
@@ -142,7 +174,9 @@
   .pair.vg{grid-template-columns:var(--vg,1fr 1.3516fr);gap:34px;align-items:center}
   .pair.vg .screen{aspect-ratio:1}
   .pair.vg .screen video{width:100%;height:100%;object-fit:contain}
-  .pair.vg .plate{max-width:none}
+  /* .plate.chart centres itself with an auto inline margin; on a grid item that cancels the
+     default stretch, leaving the chart at its intrinsic width and short of its neighbour. */
+  .pair.vg .plate{max-width:none;margin-inline:0}
   .pair.vg .plate img{width:100%;height:auto}
   /* Too narrow to sit them side by side: stack, each on the full measure. */
   @media(max-width:760px){
@@ -187,23 +221,38 @@
     .mrow .l1,.mrow .l2,.mrow .l3{grid-area:auto}
     .op{justify-self:center;margin:16px 0}
   }
+  /* The same chip the demo links wear at the top of the page, so an invitation to run the
+     agent looks the same wherever the reader meets it. */
   .try{display:inline-flex;align-items:center;gap:7px;margin-top:2px;font-size:16px;
-    font-weight:500;text-decoration:none;color:var(--accent)}
-  .try:hover{text-decoration:underline}
+    font-weight:500;text-decoration:none;color:var(--accent);
+    border:1px solid var(--accent);border-radius:999px;padding:5px 14px;line-height:1.3}
+  .try:hover{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+  /* Each experiment's demo link rides on its heading line, opposite the title, so the
+     invitation to run the agent is there when the section opens rather than only after the
+     reader has scrolled past every figure. Wraps under the title when the measure is tight. */
+  .sec-head{display:flex;align-items:baseline;justify-content:space-between;
+    flex-wrap:wrap;gap:2px 24px;max-width:var(--col);margin:0 0 12px}
+  .sec-head h3{margin:0}
+  .sec-head .try{margin-top:0}
 
-  details{border-top:1px solid var(--line);margin:18px 0;padding-top:14px;max-width:var(--col)}
+  /* A disclosure is a card, not a rule across the column: on the page's ground it reads as one
+     bounded panel, so it is obvious where the folded-away material starts and stops. Same card
+     as the BibTeX and equation blocks, so the page keeps one raised-surface idiom. */
+  details{background:var(--raised);border:1px solid var(--line);border-radius:12px;
+    box-shadow:var(--shadow);margin:22px 0;padding:8px 16px;max-width:var(--col)}
+  details[open]{padding-bottom:20px}
   /* The summary has to read as pressable without shouting: accent ink, a chevron that turns
      when the block opens, and a tinted row on hover. */
   summary{cursor:pointer;font-size:16.5px;font-weight:500;color:var(--accent);
     display:flex;align-items:center;gap:9px;list-style:none;
-    padding:7px 11px;margin:0 -11px;border-radius:9px;width:fit-content;
+    padding:7px 11px;margin:0 -8px;border-radius:9px;width:fit-content;
     transition:background .13s ease}
   summary::-webkit-details-marker{display:none}
   summary::before{content:"";flex:none;width:0;height:0;
     border-left:6px solid currentColor;border-top:4.5px solid transparent;
     border-bottom:4.5px solid transparent;transition:transform .16s ease}
   details[open]>summary::before{transform:rotate(90deg)}
-  summary:hover{background:var(--raised)}
+  summary:hover{background:var(--bg)}
   summary:hover span{text-decoration:underline;text-underline-offset:3px}
   summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   @media(prefers-reduced-motion:reduce){summary::before{transition:none}}
@@ -212,8 +261,9 @@
   pre.bibtex{background:var(--raised);border:1px solid var(--line);border-radius:12px;
     padding:14px 16px;overflow-x:auto;font-family:"IBM Plex Mono",monospace;font-size:13.5px;
     line-height:1.65;color:var(--ink);max-width:var(--col);box-shadow:var(--shadow)}
-  /* Display equation: mono, same raised card as the BibTeX block so formulas read as
-     quoted-from-the-paper rather than as prose. */
+  /* Display equation: mono and centred, set on whatever it sits on. Inside a details panel
+     it drops its card entirely so it reads as part of the folded text. */
+  details .eq{background:transparent;border-color:transparent}
   .eq{background:var(--raised);border:1px solid var(--line);border-radius:12px;
     padding:13px 16px;margin:16px 0;overflow-x:auto;font-family:"IBM Plex Mono",monospace;
     font-size:16px;line-height:1.7;color:var(--ink);max-width:var(--col);text-align:center}
@@ -226,10 +276,10 @@
 
   /* Banner: the framework loop and what the three experiments are. Both blocks sit on the
      text measure, so the diagram, its caption and the prose share one left and right edge. */
-  /* Only a block that follows another gets a separating rule -- the first one sits
-     directly under the chapter title, which brings its own. */
+  /* The blocks are separated by air alone: the diagram and the prose that reads it are one
+     movement, and a rule between them would break the chapter into two. */
   .bblock{margin-top:24px}
-  .bblock + .bblock{padding-top:22px;border-top:1px solid var(--line)}
+  .bblock + .bblock{padding-top:22px}
   .bprose{max-width:var(--col)}
   .bprose p{margin:0 0 12px}
   /* The three experiments, set as a plain list so the structure is visible at a glance. */
@@ -248,6 +298,34 @@
   .frame .t{position:absolute;left:6px;top:6px;font-family:"IBM Plex Mono",monospace;
     font-size:12.5px;color:#fff;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.22);
     border-radius:5px;padding:1px 6px;line-height:1.35}
+  /* Kernel-radius mosaic: one block of whole Lenia worlds per radius, every tile drawn at the
+     same cells-per-pixel, so a rho=24 world really is six times a rho=4 world across rather
+     than each being cropped to a common tile. --t is the world's width in Lenia cells (the
+     grid scales linearly with rho, from 64 at rho=10) and --n how many tiles the block puts
+     on a row; --cell is the shared px-per-cell, solved so the three blocks and their gaps sit
+     inside the measure (460 cells of tile, 80px of gap, and 40px of slack so the mosaic clears
+     the text margin on both sides rather than running flush to it). Tile counts make every
+     block one rho=24 world tall: 4 rows of 38 cells, 2 rows of 77, 1 of 154. The mosaic is its
+     own size container, so 100cqw is whatever width it actually got -- solving against --col
+     instead would ignore the padding of whatever encloses the figure, and this one sits inside
+     a details panel that is 34px narrower than the measure. */
+  .rmosaic{container-type:inline-size;width:100%;
+    --cell:calc((100cqw - 120px) / 460);
+    display:grid;grid-template-columns:repeat(3,auto);justify-content:center;
+    align-items:stretch;gap:30px;max-width:var(--col);margin:0}
+  /* Two rows per block: the tiles centre against the tallest block, the radius label sits on
+     the row below, so all four labels share one baseline however tall their block is. */
+  .rblock{display:grid;grid-template-rows:1fr auto;justify-items:center;gap:12px}
+  .rblock .tiles{display:grid;gap:5px;align-self:center;
+    grid-template-columns:repeat(var(--n),calc(var(--t) * var(--cell)))}
+  .rblock .frame{border-radius:clamp(4px,calc(var(--t) * var(--cell) / 16),9px)}
+  .rblock .slab{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--muted)}
+  /* Too narrow for one row: the blocks stack, and --cell is re-solved against the widest of
+     them -- the rho=6 block, four 38-cell worlds plus their three 5px gaps. */
+  @media(max-width:760px){
+    .rmosaic{--cell:calc((100cqw - 55px) / 152);grid-template-columns:auto}
+  }
+
   /* Frame strips live inside their experiment's section now, so they take the section
      width and carry their own legend rather than a shared one up in the banner. */
   .keyfig{max-width:var(--col);margin-bottom:36px}
@@ -260,10 +338,10 @@
      the strip instead. */
   @media(min-width:1420px){
     .keyfig{max-width:none;display:grid;align-items:start;column-gap:22px;
-      grid-template-columns:var(--col) minmax(0,1fr);
+      grid-template-columns:minmax(0,var(--col)) minmax(0,1fr);
       margin-right:calc(-1 * clamp(0px,(100vw - 1160px)/2 - 12px,190px))}
     /* Whatever the figure shows -- a frame strip, a pair of plates -- keeps the measure. */
-    .keyfig>.strip,.keyfig>.pair{grid-column:1}
+    .keyfig>.strip,.keyfig>.pair,.keyfig>.rmosaic{grid-column:1}
     .keyfig .key-row{grid-column:2;align-self:center;margin-top:0;
       flex-direction:column;align-items:flex-start;gap:10px}
     .keyfig .key-row .item{font-size:14px;line-height:1.4}
@@ -274,22 +352,19 @@
   .key-row{display:flex;flex-wrap:wrap;align-items:center;gap:9px 24px}
   .key-row .item{display:flex;align-items:center;gap:8px;font-size:15.5px;color:var(--muted)}
   .key-row svg{flex:none;display:block}
-  /* Cover: the three tasks lead the page, with one caption for the row -- what we do,
-     then a readout of each clip by position. */
-  /* The three cover clips break out past the page margins -- equally on both sides, since the
-     escape is a symmetric negative margin on the wrap's content box rather than a viewport
-     centring. Capped at 150px a side: that puts each tile at ~458px, which is the native
-     resolution of the source clips (456-480px), so they get as large as they can without
-     upscaling. On narrower viewports there is no margin to take and the clips sit flush. */
-  .clips{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;
-    margin-inline:calc(-1 * var(--breakout))}
+  /* Cover: the three tasks sit under the title block, with one caption for the row -- what we
+     do, then a readout of each clip by position. The row takes the same measure as the prose
+     and the figures below, so the whole page keeps one left and right edge. */
+  .clips{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:var(--col)}
   .clip{display:block;text-decoration:none;color:inherit}
   .clip video{display:block;width:100%;aspect-ratio:1;object-fit:cover;
     border-radius:12px;border:1px solid var(--line2);background:#000}
   .clip:hover video{border-color:var(--accent)}
-  /* The note sits under the clips and takes the same breakout, so its measure matches theirs. */
-  .cover-note{margin:16px 0 0;font-size:17px;line-height:1.7;color:var(--muted);
-    max-width:none;margin-inline:calc(-1 * var(--breakout))}
+  /* Figure 1 is the two halves of that opening in one unit: the clips on top, the loop that
+     produces them underneath. The band between them is wider than the gutter inside the clip
+     row, so the diagram reads as the second half of the figure rather than as a fourth panel. */
+  .cover-fig{margin-bottom:0;scroll-margin-top:20px}
+  .cover-fig>.plate{margin-top:22px}
   @media(max-width:900px){
     .strip{grid-template-columns:repeat(3,1fr)}
     .gallery{grid-template-columns:repeat(5,1fr)}
@@ -321,40 +396,7 @@
   </div>
 
 
-  <!-- The three tasks lead, before the title: the clips say what this is faster than prose can. -->
-  <section id="cover" style="margin:6px 0 34px">
-    <div>
-      <div class="clips">
-        <a class="clip" href="#creation">
-          <video autoplay muted playsinline loop preload="metadata" poster="banner/videos/creation.jpg">
-            <source src="banner/videos/creation.mp4" type="video/mp4"></video>
-        </a>
-        <a class="clip" href="#steering">
-          <video autoplay muted playsinline loop preload="metadata" poster="banner/videos/steering.jpg">
-            <source src="banner/videos/steering.mp4" type="video/mp4"></video>
-        </a>
-        <a class="clip" href="#human">
-          <video autoplay muted playsinline loop preload="metadata" poster="banner/videos/maze.jpg">
-            <source src="banner/videos/maze.mp4" type="video/mp4"></video>
-        </a>
-      </div>
-      <p class="cover-note">
-        In this work we develop a closed-loop framework based on autotelic reinforcement
-        learning for discovery and control in complex systems: an agent samples goals 
-        (i.e. desired states or dynamics of the system)
-        and learns to steer a system toward them through small, local interventions on its
-        state. We instantiate the framework on Lenia, a continuous cellular automaton, in a system 
-        we call CARL. The clips above show one episode from each of our three
-        experiments. Trained CARL agents can (1) create solitons, the self-organizing patterns
-        Lenia is known for; (2) control them, by steering their direction of movement; and (3)
-        take direction from a human in the loop, acting as a high-level interface between a
-        person and a complex system &mdash; here, a steering agent is deployed in a maze while a
-        person chooses the target direction.
-      </p>
-    </div>
-  </section>
-
-  <h1>
+  <h1 style="margin-top:6px">
     <span class="kicker">The Artificial Experimentalist</span>
     Discovery and Control of Self-Organizing Phenomena with Autotelic Reinforcement Learning
   </h1>
@@ -373,10 +415,44 @@
 
   <nav class="links">
     <a href="https://direct.mit.edu/isal/proceedings/isal2026/38/45/138193" target="_blank" rel="noopener">Paper</a>
-    <a href="soliton_creation_demo.html">Soliton creation demo</a>
-    <a href="soliton_steering_demo.html">Soliton steering demo</a>
     <a href="https://github.com/markocvjetko/carl-release" target="_blank" rel="noopener">Code</a>
+    <a class="demo" href="soliton_creation_demo.html">Soliton creation demo &rarr;</a>
+    <a class="demo" href="soliton_steering_demo.html">Soliton steering demo &rarr;</a>
   </nav>
+
+  <!-- Figure 1 sits right under the title block: the clips say what this is faster than prose
+       can, and the framework diagram under them answers the question they raise, before the
+       abstract puts either in words. The clips lead because they are what holds the top of the
+       page; the loop follows because it is the thing the clips are evidence of. -->
+  <section id="cover" style="margin:34px 0 0">
+    <figure id="fig1" class="cover-fig">
+      <div class="clips">
+        <a class="clip" href="#creation">
+          <video autoplay muted playsinline loop preload="metadata" poster="banner/videos/creation.jpg">
+            <source src="banner/videos/creation.mp4" type="video/mp4"></video>
+        </a>
+        <a class="clip" href="#steering">
+          <video autoplay muted playsinline loop preload="metadata" poster="banner/videos/steering.jpg">
+            <source src="banner/videos/steering.mp4" type="video/mp4"></video>
+        </a>
+        <a class="clip" href="#human">
+          <video autoplay muted playsinline loop preload="metadata" poster="banner/videos/maze.jpg">
+            <source src="banner/videos/maze.mp4" type="video/mp4"></video>
+        </a>
+      </div>
+      <div class="plate">
+        <img src="banner/frames/framework.png" alt="The CARL loop: a goal generator samples a goal, a goal-conditioned RL policy observes the Lenia state and outputs an intervention, the Lenia update rule advances the grid, and a goal-conditioned reward feeds a training signal back to the policy.">
+      </div>
+      <figcaption>In this work, we introduce <b>CARL</b>, an autotelic reinforcement learning
+        agent that discovers and controls <b>solitons</b>, the localized, self-organizing patterns
+        of Lenia, a continuous cellular automaton. A trained agent (1) creates a soliton,
+        (2) steers an existing soliton in a chosen direction, and (3) takes directional commands
+        from a human in real time to guide a soliton through a maze. All three run on the same
+        loop: CARL samples a goal at the start of each episode, such as a soliton's target movement
+        direction, then at each step observes the grid and, conditioned on that goal, adds or
+        removes cell activations. Afterwards, the Lenia update rule advances the state.</figcaption>
+    </figure>
+  </section>
 
   <section id="abstract">
     <h2>Abstract</h2>
@@ -392,8 +468,8 @@
       at a higher rate than heuristic baselines. Second, it learns to steer the movement direction
       of existing solitons with few interventions, showing that CARL can control self-organizing
       patterns, not only create them. Third, humans can use trained agents to guide solitons through
-      maze environments in real time by specifying high-level directional commands that the agent
-      translates into low-level interventions. Trained across diverse goals, update rules, and
+      maze environments in real time by specifying high-level directional commands that the agents
+      translate into low-level interventions. Trained across diverse goals, update rules, and
       random initial states, the agents acquire policies that generalize zero-shot to various
       out-of-distribution conditions. These results suggest a path toward artificial experimentalist
       agents that, autonomously or with human guidance, discover and control emergent phenomena in
@@ -471,6 +547,43 @@
        a few randomly changed cells can move Lenia from one attractor to another. -->
   <section id="motivation">
     <h2>A motivating example</h2>
+    <!-- Lenia's update rule, spelled out. Everything around it reads without it; it is here so
+         the rule parameters the experiments lean on are defined once, in one place. -->
+    <details>
+      <summary><span>How Lenia works</span></summary>
+      <div style="margin-top:14px">
+      <p class="lede">
+        A Lenia world is a grid of values in <span class="var">[0, 1]</span> with periodic
+        boundaries. Every cell sums up its neighbourhood through a fixed kernel
+        <span class="var">K</span>, and a growth function <span class="var">&phi;</span> turns that
+        sum into a change applied to the cell:
+      </p>
+      <div class="eq">X<sup>t+dt</sup> = [ X<sup>t</sup> + dt &middot; &phi;(K &lowast; X<sup>t</sup>) ]<sub>0</sub><sup>1</sup></div>
+      <p class="lede">
+        with the result clipped back into <span class="var">[0, 1]</span>, and
+        <span class="var">dt = 0.1</span> the step size throughout. The same rule applies to every
+        cell at once.
+      </p>
+      <p class="lede">
+        The <b>kernel</b> is a disk of radius <span class="var">&rho;</span>, divided into
+        <span class="var">b</span> concentric rings of equal width. Each ring carries a smooth bump
+        scaled by its peak value <span class="var">&beta;<sub>i</sub></span>, and the whole kernel
+        is normalized to sum to one. So <span class="var">&rho;</span> and
+        <span class="var">&beta; = (&beta;<sub>1</sub>, &hellip;, &beta;<sub>b</sub>)</span> set
+        what each cell perceives.
+      </p>
+      <p class="lede">
+        The <b>growth function</b> maps the kernel sum into <span class="var">[&minus;1, 1]</span>
+        through a Gaussian bump:
+      </p>
+      <div class="eq">&phi;(u) = 2 exp( &minus;(u &minus; &mu;)<sup>2</sup> / 2&sigma;<sup>2</sup> ) &minus; 1</div>
+      <p class="lede">
+        A cell grows when its neighbourhood sum lands near <span class="var">&mu;</span> and decays
+        as the sum falls away from it; <span class="var">&sigma;</span> sets how wide that window
+        of tolerance is.
+      </p>
+      </div>
+    </details>
     <p class="lede">
       Lenia's dynamics are sensitive. An <b>orbium</b>, the best-known Lenia soliton, glides
       across the grid indefinitely when left alone, and a patch of randomly raised and lowered
@@ -478,9 +591,10 @@
     </p>
     <p class="lede">
       The outcome is not the same each time. Under different random draws, the same kind of patch
-       can turn the orbium, dissolve it, blow it up into a Turing pattern, or cause it to morph into an 
+       can turn the orbium, dissolve it, blow it up into a Turing-like pattern that fills the
+       whole grid, or cause it to morph into an 
        entirely new stable soliton. A few perturbations at the right place and moment decide 
-       which attractor the system falls into. Can that leverage be put to use — can we train a 
+       which attractor the system falls into. In this work we ask, can we train a 
        controller that knows where and when to perturb, in order to steer the system towards 
        desired regimes? More specifically, can we train a controller that can discover new self-organizing
        patterns, and learn to control their behavior?
@@ -536,40 +650,30 @@
     </figure>
   </section>
 
-  <!-- Banner: the framework loop and the three experiments in brief. The frame-by-frame
-       rollouts live with their experiments, in the sections below. -->
+  <!-- The framework in prose. Its diagram is Figure 1, at the top of the page, where it sits
+       with the three experiments it produces; the frame-by-frame rollouts live with those
+       experiments, in the sections below. -->
   <section id="hero" class="chap-open">
-    <h2 class="chap">Framework</h2>
-      <div class="bblock">
-        <figure id="fig1">
-          <div class="plate">
-            <img src="banner/frames/framework.png" alt="The CARL loop: a goal generator samples a goal, a goal-conditioned RL policy observes the Lenia state and outputs an intervention, the Lenia update rule advances the grid, and a goal-conditioned reward feeds a training signal back to the policy.">
-          </div>
-          <figcaption>Our framework instantiation, called <b>CARL</b>, is an autotelic RL agent that
-            learns to drive the evolution of Lenia toward desired states. At the start of an episode,
-            CARL generates a goal, e.g., the desired moving direction of a soliton (a local, self-organizing pattern). Then, at each
-            step of the episode, CARL perceives the current state and outputs an action (adding or
-            removing cell activations) conditioned on the goal, after which the Lenia update rule is
-            applied.</figcaption>
-        </figure>
-      </div>
-
+    <h2 class="chap" style="border-top:0">Framework</h2>
     <div class="bblock bprose">
       <p>We cast the discovery and control of solitons in Lenia as a sequential decision problem,
-        and tackle it with reinforcement learning.</p>
+        and tackle it with reinforcement learning
+        (<a class="cite" href="#fig1">Fig.&nbsp;1</a>).</p>
       <p>An episode alternates between the agent and the system. At each step the agent observes the
         grid and applies one intervention, the Lenia update rule then advances the state, and the
         agent receives a reward that scores the new state against the goal and charges for the
         intervention. Interventions are local and simple: an action adds or removes mass in a small disk
         around a single cell. The agent may also choose not to intervene.</p>
-      <p>At the start of each episode CARL samples a goal, which specifies the target the
-        agent must reach, the action cost, and the update rule the episode runs under.
-        Lenia's update rule is parameterized, and we train across a set of update rules. Every
-        intervention carries the sampled action cost. Driving the system towards a desired state
-        can be done with continuous interventions, i.e. micromanaging, or with sparse interventions
-        which enable the complex system to do the rest of the work. Action costs tip the balance
-        toward the latter, pushing the agent to act sparsely and to work alongside the system's
-        dynamics rather than against them.</p>
+
+      <p>Three things are sampled at the start of each episode: the <b>goal</b>, the target the
+        agent must reach; the <b>action cost</b>, the price charged for every intervention; and the
+        <b>update rule</b>, the dynamics the episode runs under. Lenia's rule is parameterized, and
+        we train across a set of rules rather than a single one.</p>
+      <p>The action cost shapes how the agent reaches its goal. It can intervene at every step,
+        micromanaging the system, or place a few interventions well and let the system's own
+        dynamics carry the state the rest of the way. A higher cost tips the balance toward the
+        latter, pushing the agent to act sparsely and to work alongside those dynamics rather than
+        against them.</p>
       <p>The policy network is a U-Net (<a class="cite" href="https://doi.org/10.1007/978-3-319-24574-4_28" target="_blank" rel="noopener" data-cite="Olaf Ronneberger, Philipp Fischer and Thomas Brox (2015). U-Net: Convolutional Networks for Biomedical Image Segmentation. Medical Image Computing and Computer-Assisted Intervention &#8211; MICCAI 2015, 234&#8211;241. Springer International Publishing.">Ronneberger et al., 2015</a>) 
         that maps the grid to a dense field of
         Q-values, one per action type, so choosing an action is choosing a cell. Dense action
@@ -577,31 +681,35 @@
         pushing, grasping and mobile manipulation (<a class="cite" href="https://doi.org/10.1109/IROS.2018.8593986" target="_blank" rel="noopener" data-cite="Andy Zeng, Shuran Song, Stefan Welker, Johnny Lee, Alberto Rodriguez and Thomas Funkhouser (2018). Learning Synergies Between Pushing and Grasping with Self-Supervised Deep Reinforcement Learning. 2018 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS), 4238&#8211;4245. IEEE Press.">Zeng et al., 2018</a>;
         <a class="cite" href="https://arxiv.org/abs/2004.09141" target="_blank" rel="noopener" data-cite="Jimmy Wu, Xingyuan Sun, Andy Zeng, Shuran Song, Johnny Lee, Szymon Rusinkiewicz and Thomas Funkhouser (2020). Spatial Action Maps for Mobile Manipulation. Robotics: Science and Systems XVI.">Wu et al., 2020</a>). Like CAs, the
         network is convolutional and local; its receptive field is nonetheless wide enough to cover
-        most of the grid. It observes the last four states, so that motion is visible. Goal, action
+        most of the grid. It observes the last four states, so that the dnyamics of the system are visible. Goal, action
         cost, step index and the parameters of the running update rule enter through FiLM
         conditioning (<a class="cite" href="https://arxiv.org/abs/1709.07871" target="_blank" rel="noopener" data-cite="Ethan Perez, Florian Strub, Harm de Vries, Vincent Dumoulin and Aaron Courville (2018). FiLM: Visual Reasoning with a General Conditioning Layer. Proceedings of the Thirty-Second AAAI Conference on Artificial Intelligence, 3942&#8211;3951. AAAI Press.">Perez et al., 2018</a>), so a single policy of roughly 800K parameters covers the whole
         goal space and every update rule it was trained on. We train with Double DQN
         (<a class="cite" href="https://arxiv.org/abs/1509.06461" target="_blank" rel="noopener" data-cite="Hado van Hasselt, Arthur Guez and David Silver (2016). Deep Reinforcement Learning with Double Q-Learning. Proceedings of the Thirtieth AAAI Conference on Artificial Intelligence, 2094&#8211;2100. AAAI Press.">van Hasselt et al., 2016</a>).</p>
-      <p>We demonstrate CARL through three experiments.</p>
-      <ol class="exps">
-        <li><b>Soliton creation.</b> CARL creates stable solitons across a wide range of Lenia
-          update rules and from procedurally generated initial states, and trained agents
-          generalize zero-shot to unseen goals, update rules and modified action spaces.</li>
-        <li><b>Soliton direction.</b> A second agent steers the movement direction of existing
-          solitons, demonstrating that CARL can not only create self-organizing patterns, but also
-          control them.</li>
-        <li><b>Human-in-the-loop.</b> A proof of concept that humans can interact with complex
-          systems through CARL agents by modifying their goals in real time, by having users
-          navigate solitons through a maze using the movement direction agent.</li>
-      </ol>
     </div>
 
   </section>
 
   <section id="creation" class="chap-open">
-    <h2 class="chap">Experiments</h2>
-    <h3>1 &middot; Creating solitons</h3>
-    <p class="sec-ref">Soliton Creation Task &middot; Fig. 2&ndash;5</p>
+    <h2 class="chap" style="border-top:0">Experiments</h2>
+    <div class="bprose">
+      <p>We demonstrate CARL through three experiments.</p>
+      <ol class="exps">
+        <li><b>Soliton creation.</b> CARL creates stable solitons across a wide range of Lenia
+          update rules and from procedurally generated initial states, and trained agents
+          generalize zero-shot to unseen goals, update rules and modified action spaces.</li>
+        <li><b>Soliton steering.</b> A second agent steers the movement direction of existing
+          solitons, demonstrating that CARL can not only create self-organizing patterns, but also
+          control them.</li>
+        <li><b>Human-in-the-loop.</b> A proof of concept that humans can interact with complex
+          systems through CARL agents by modifying their goals in real time, by having users
+          navigate solitons through a maze using the steering agent.</li>
+      </ol>
+    </div>
+    <div class="sec-head" style="margin-top:30px">
+      <h3>1 &middot; Creating solitons</h3>
+      <a class="try" href="soliton_creation_demo.html">Create a soliton yourself &rarr;</a>
+    </div>
     <p class="lede">
       The phenomena of primary interest in Lenia are <b>solitons</b>: spatially localized,
       self-organizing patterns that persist over time and often move across the grid. Solitons
@@ -616,33 +724,40 @@
       motivated goal exploration processes (<a class="cite" href="https://proceedings.neurips.cc/paper/2020/hash/33a5435d4f945aa6154b31a73bab3b73-Abstract.html" target="_blank" rel="noopener" data-cite="Mayalen Etcheverry, Cl&eacute;ment Moulin-Frier and Pierre-Yves Oudeyer (2020). Hierarchically Organized Latent Modules for Exploratory Search in Morphogenetic Systems. Advances in Neural Information Processing Systems, 33, 4846&#8211;4859. Curran Associates, Inc.">Etcheverry et al., 2020</a>)
        and quality-diversity (<a class="cite" href="https://doi.org/10.1162/isal_a_00827" target="_blank" rel="noopener" data-cite="Maxence Faldor and Antoine Cully (2024). Toward Artificial Open-Ended Evolution within Lenia using Quality-Diversity. ALIFE 2024: Proceedings of the 2024 Artificial Life Conference. MIT Press.">Faldor and Cully, 2024</a>).
     </p>
-    <p class="lede">
-      To detect whether a soliton is present on the grid, we use a simple filter inspired by prior work (<a class="cite" href="https://doi.org/10.1126/sciadv.adp0834" target="_blank" rel="noopener" data-cite="Gautier Hamon, Mayalen Etcheverry, Bert Wang-Chak Chan, Cl&eacute;ment Moulin-Frier and Pierre-Yves Oudeyer (2025). Discovering sensorimotor agency in cellular automata using diversity search. Science Advances, 11(44), eadp0834.">Hamon et al., 2025</a>; <a class="cite" href="https://doi.org/10.1162/isal_a_00827" target="_blank" rel="noopener" data-cite="Maxence Faldor and Antoine Cully (2024). Toward Artificial Open-Ended Evolution within Lenia using Quality-Diversity. ALIFE 2024: Proceedings of the 2024 Artificial Life Conference. MIT Press.">Faldor and Cully, 2024</a>): after applying the Lenia update
-      rule for 5,000 steps without intervention, we classify the resulting state as containing a
-      soliton if its total mass is non-zero and below 10% of the grid capacity. We omit 
-      additional checks used in prior
-      work — such as a velocity threshold, mass variability, and
-      robustness testing — since our goal is to evaluate CARL
-      for its ability to create local, persistent patterns of any kind.
-      We visually inspected many simulations that pass the filter
-      and found no false positives (i.e., global, Turing-like patterns
-      were never accepted).
-    </p>
+    <!-- How a soliton is detected: a methods detail the reader can take on trust, so it folds
+         away at the point where the soliton filter is first relied on. -->
+    <details>
+      <summary><span>How we detect solitons</span></summary>
+      <div style="margin-top:14px">
+      <p class="lede">
+        To detect whether a soliton is present on the grid, we use a simple filter inspired by prior work (<a class="cite" href="https://doi.org/10.1126/sciadv.adp0834" target="_blank" rel="noopener" data-cite="Gautier Hamon, Mayalen Etcheverry, Bert Wang-Chak Chan, Cl&eacute;ment Moulin-Frier and Pierre-Yves Oudeyer (2025). Discovering sensorimotor agency in cellular automata using diversity search. Science Advances, 11(44), eadp0834.">Hamon et al., 2025</a>; <a class="cite" href="https://doi.org/10.1162/isal_a_00827" target="_blank" rel="noopener" data-cite="Maxence Faldor and Antoine Cully (2024). Toward Artificial Open-Ended Evolution within Lenia using Quality-Diversity. ALIFE 2024: Proceedings of the 2024 Artificial Life Conference. MIT Press.">Faldor and Cully, 2024</a>): after applying the Lenia update
+        rule for 5,000 steps without intervention, we classify the resulting state as containing a
+        soliton if its total mass is non-zero and below 10% of the grid capacity. We omit 
+        additional checks used in prior
+        work — such as a velocity threshold, mass variability, and
+        robustness testing — since our goal is to evaluate CARL
+        for its ability to create local, persistent patterns of any kind.
+        We visually inspected many simulations that pass the filter
+        and found no false positives (i.e., global, Turing-like patterns
+        were never accepted).
+      </p>
 
-    <div class="pair">
-      <figure>
-        <div class="screen"><video autoplay muted playsinline loop preload="metadata"
-          aria-label="A grid of runs whose final states pass the filter: each board holds one small localized pattern, the rest of the board empty."><source src="assets/videos/soliton_filter_pass.mp4" type="video/mp4"></video></div>
-        <figcaption><b>Accepted.</b> Each board settles into a localized pattern that holds
-          together on its own.</figcaption>
-      </figure>
-      <figure>
-        <div class="screen"><video autoplay muted playsinline loop preload="metadata"
-          aria-label="A grid of runs whose final states fail the filter: patterns spread until they cover the board, or the board is left empty."><source src="assets/videos/soliton_filter_fail.mp4" type="video/mp4"></video></div>
-        <figcaption><b>Rejected.</b> The pattern spreads over the board, or nothing survives at
-          all.</figcaption>
-      </figure>
-    </div>
+      <div class="pair" style="margin-bottom:0">
+        <figure>
+          <div class="screen"><video autoplay muted playsinline loop preload="metadata"
+            aria-label="A grid of runs whose final states pass the filter: each board holds one small localized pattern, the rest of the board empty."><source src="assets/videos/soliton_filter_pass.mp4" type="video/mp4"></video></div>
+          <figcaption><b>Accepted.</b> Each board settles into a localized pattern that holds
+            together on its own.</figcaption>
+        </figure>
+        <figure>
+          <div class="screen"><video autoplay muted playsinline loop preload="metadata"
+            aria-label="A grid of runs whose final states fail the filter: patterns spread until they cover the board, or the board is left empty."><source src="assets/videos/soliton_filter_fail.mp4" type="video/mp4"></video></div>
+          <figcaption><b>Rejected.</b> The pattern spreads over the board, or nothing survives at
+            all.</figcaption>
+        </figure>
+      </div>
+      </div>
+    </details>
 
     <p class="lede">
       Rather than explicitly training to build solitons &mdash; which would require defining what
@@ -653,32 +768,41 @@
       second option is simply cheaper: a configuration that holds the target mass without help
       costs nothing to maintain. Soliton creation therefore emerges as a byproduct of reward maximization.
     </p>
-    <p class="lede">
-      <b>Goal space and reward.</b> The goal space is
-      <span class="var">&#x1D4A2; = &#x1D4AF; &times; &#x1D49E; &times; &Omega;</span>, where
-      <span class="var">&#x1D4AF;</span> is the set of target masses, <span class="var">&#x1D49E;</span>
-      the set of action costs, and <span class="var">&Omega;</span> the set of update rules. At the
-      start of each episode, CARL uniformly samples a goal <span class="var">g = (&tau;, c, &omega;)</span>, 
-      with <span class="var">&tau; &isin; [0, 200]</span>,
-      <span class="var">c &isin; [0, 0.2]</span>, and <span class="var">&omega;</span> drawn from a
-      set of training update rules. The reward at each step is
-    </p>
-    <div class="eq">r = &minus;&radic;<span class="rad">|M<sup>t</sup> &minus; &tau;| / N</span> &minus; c &middot; <b>1</b>[&delta;<sup>t</sup> &ne; 0]</div>
-    <p class="lede">
-      where <span class="var">M<sup>t</sup> = &sum;<sub>i,j</sub> X<sup>t</sup><sub>i,j</sub></span>
-      is the total mass of the grid at time <span class="var">t</span>, <span class="var">N</span>
-      the total number of grid cells, and
-      <span class="var">&delta;<sup>t</sup> &isin; {&minus;1, 0, +1}</span> the action type selected
-      by the agent. The first term penalizes deviation from the target mass, the second penalizes
-      non-trivial interventions, weighted by the sampled action cost <span class="var">c</span>. A
-      single policy must therefore learn to act across diverse combinations of target masses, action
-      costs, update rules, and initial conditions. Sampling the action cost per episode rather than
-       fixing it serves two purposes: it produces a
-      single budget-adaptive policy that can operate across a spectrum of intervention regimes at
-      deployment, and we speculate it also acts as an exploration mechanism during training &mdash;
-      low-cost episodes allow the agent to freely discover viable configurations, while high-cost
-      episodes pressure it to find self-sustaining ones.
-    </p>
+    <!-- The formal goal space and reward: the machinery behind the proxy task above, wanted by
+         readers reproducing the setup and skippable by everyone else. -->
+    <details>
+      <summary><span>Goal space and reward, more formally</span></summary>
+      <div style="margin-top:14px">
+      <p class="lede">
+        The goal space is
+        <span class="var">&#x1D4A2; = &#x1D4AF; &times; &#x1D49E; &times; &Omega;</span>, where
+        <span class="var">&#x1D4AF;</span> is the set of target masses, <span class="var">&#x1D49E;</span>
+        the set of action costs, and <span class="var">&Omega;</span> the set of update rules. At the
+        start of each episode, CARL uniformly samples a goal <span class="var">g = (&tau;, c, &omega;)</span>, 
+        with <span class="var">&tau; &isin; [0, 200]</span>,
+        <span class="var">c &isin; [0, 0.2]</span>, and <span class="var">&omega;</span> drawn from a
+        set of 85 training update rules: soliton-supporting rules hand-selected from the parameter-space
+        survey of <a class="cite" href="https://arxiv.org/abs/2601.01932" target="_blank" rel="noopener" data-cite="Barbora Hudcov&aacute;, Franti&scaron;ek Du&scaron;ek, Marco Tuccio and Cl&eacute;ment Hongler (2025). Visualizing the Structure of Lenia Parameter Space. ALIFE 2025: Ciphers of Life: Companion Proceedings of the Artificial Life Conference 2025. MIT Press.">Hudcov&aacute; et al., 2025</a>, all at kernel radius <span class="var">&rho; = 10</span>.
+        The reward at each step is
+      </p>
+      <div class="eq">r = &minus;&radic;<span class="rad">|M<sup>t</sup> &minus; &tau;| / N</span> &minus; c &middot; <b>1</b>[&delta;<sup>t</sup> &ne; 0]</div>
+      <p class="lede">
+        where <span class="var">M<sup>t</sup> = &sum;<sub>i,j</sub> X<sup>t</sup><sub>i,j</sub></span>
+        is the total mass of the grid at time <span class="var">t</span>, <span class="var">N</span>
+        the total number of grid cells, and
+        <span class="var">&delta;<sup>t</sup> &isin; {&minus;1, 0, +1}</span> the action type selected
+        by the agent. The first term penalizes deviation from the target mass, the second penalizes
+        non-trivial interventions, weighted by the sampled action cost <span class="var">c</span>. A
+        single policy must therefore learn to act across diverse combinations of target masses, action
+        costs, update rules, and initial conditions. Sampling the action cost per episode rather than
+         fixing it serves two purposes: it produces a
+        single budget-adaptive policy that can operate across a spectrum of intervention regimes at
+        deployment, and we speculate it also acts as an exploration mechanism during training &mdash;
+        low-cost episodes allow the agent to freely discover viable configurations, while high-cost
+        episodes pressure it to find self-sustaining ones.
+      </p>
+      </div>
+    </details>
 
     <!-- Which rules the agent trains on: reference material rather than a result, so it sits
          folded away here, at the point where the goal space introduces the update rule set. -->
@@ -690,7 +814,9 @@
         <figcaption><b>The 85 training update rules.</b> Each point is one rule, positioned by its
           growth parameters and marked by its kernel <span class="var">&beta;</span>. They trace a
           narrow band &mdash; wider growth needs a higher centre to stay in the regime where
-          patterns survive.</figcaption>
+          patterns survive. The rules were hand-selected using the
+          <a class="cite" href="https://lenia-explorer.vercel.app/" target="_blank" rel="noopener" data-cite="Barbora Hudcov&aacute;, Franti&scaron;ek Du&scaron;ek, Marco Tuccio and Cl&eacute;ment Hongler (2025). Visualizing the Structure of Lenia Parameter Space. ALIFE 2025: Ciphers of Life: Companion Proceedings of the Artificial Life Conference 2025. MIT Press.">Lenia Explorer</a>
+          of <a class="cite" href="https://arxiv.org/abs/2601.01932" target="_blank" rel="noopener" data-cite="Barbora Hudcov&aacute;, Franti&scaron;ek Du&scaron;ek, Marco Tuccio and Cl&eacute;ment Hongler (2025). Visualizing the Structure of Lenia Parameter Space. ALIFE 2025: Ciphers of Life: Companion Proceedings of the Artificial Life Conference 2025. MIT Press.">Hudcov&aacute; et al., 2025</a>.</figcaption>
       </figure>
     </details>
 
@@ -746,7 +872,7 @@
         <video autoplay muted playsinline loop preload="none"
           aria-label="Forty hand-selected successful episodes, each on a different update rule, played through three phases: the agent intervening for 150 steps, then 5,000 steps of free evolution under the soliton filter, then 1,000 further steps. Each board ends holding a localized pattern."><source src="assets/videos/curated_solitons.mp4" type="video/mp4"></video>
       </div>
-      <figcaption><b>Forty successful episodes.</b> Runs in which
+      <figcaption><b>Successful episodes.</b> Runs in which
         the trained agent produced a soliton, each under a different training update rule.</figcaption>
     </figure>
 
@@ -769,100 +895,191 @@
     </figure>
 
 
-    <p class="lede">
-      <b>Comparison with baselines.</b> We compare CARL against several heuristic baselines across
-      all training update rules, with a fixed action cost of <span class="var">c = 0.1</span> and
-      mass targets <span class="var">&tau; &isin; {50, 100, 150, 200}</span>:
-    </p>
-    <ul class="blist">
-      <li><b>No-op.</b> This baseline measures how often the initial conditions alone produce solitons.</li>
-      <li><b>Random.</b> Random action type and location.</li>
-      <li><b>Mass-based.</b> Adds or removes mass toward the target, placed randomly or at
-        locations of existing mass.</li>
-      <li><b>Mass-based with threshold.</b> The same, but only acting when mass deviates by more
-        than 10% from the target.</li>
-    </ul>
+    <details>
+      <summary><span>Comparison with baselines</span></summary>
+      <p class="lede">
+        We compare CARL against several heuristic baselines across all training update rules,
+        with a fixed action cost of <span class="var">c = 0.1</span> and mass targets <span class="var">&tau; &isin; {50, 100, 150, 200}</span>. Each name below is
+        the label used in the chart: <em>near</em> places the action at a cell that already holds
+        mass, <em>rand</em> at a random cell, and <em>+thr</em> adds the 10% threshold.
+      </p>
+      <ul class="blist">
+        <li><b>No-op.</b> Never acts; measures how often the initial conditions alone produce solitons.</li>
+        <li><b>Random.</b> Random action type and location.</li>
+        <li><b>Mass (near).</b> Adds or removes mass toward the target, at cells that already hold mass.</li>
+        <li><b>Mass (rand).</b> The same rule, but at a uniformly random location.</li>
+        <li><b>Mass+thr (near).</b> Mass (near), acting only when the board mass deviates by more
+          than 10% from the target.</li>
+        <li><b>Mass+thr (rand).</b> Mass (rand) under that same 10% threshold.</li>
+      </ul>
 
-    <figure>
-      <div class="plate chart"><img src="assets/figures/selforg_comparison.svg" loading="lazy" alt="Bar chart comparing CARL against six heuristic baselines on episode success rate and rule coverage. CARL leads on both, at 31.2 percent and 64.7 percent."></div>
-      <figcaption><b>CARL outperforms every baseline</b>, both in the overall soliton creation rate
-        and in the number of update rules for which at least one soliton is generated. The gap is
-        particularly notable against the mass-based heuristics, which have access to the same mass
-        information as CARL but lack spatial awareness: they cannot learn <em>where</em> to place
-        mass to seed a viable pattern. The no-op baseline confirms that solitons rarely arise from
-        random initial conditions alone, underscoring that the agent's interventions are
-        essential.</figcaption>
-    </figure>
+      <figure>
+        <div class="plate chart"><img src="assets/figures/selforg_comparison.svg?v=5" loading="lazy" alt="Bar chart comparing CARL against six heuristic baselines on two measures: the percentage of episodes that produce a soliton, and the percentage of update rules for which a soliton is found. CARL leads on both, at 31.2 percent and 64.7 percent."></div>
+        <figcaption><b>CARL outperforms every baseline</b>, both in the overall soliton creation rate
+          and in the number of update rules for which at least one soliton is generated. The gap is
+          particularly notable against the mass-based heuristics, which have access to the same mass
+          information as CARL but lack spatial awareness: they cannot learn <em>where</em> to place
+          mass to seed a viable pattern. The no-op baseline confirms that solitons rarely arise from
+          random initial conditions alone, underscoring that the agent's interventions are
+          essential.</figcaption>
+      </figure>
+    </details>
 
     <p class="lede">
       <b>Generalization.</b> The results above show that CARL reliably creates solitons under
-      training conditions. We now assess how robust this capability is along three axes: modified
-      action parameters, rescaled update rule kernels, and entirely novel update rules.
+      training update rules. We now assess how robust this capability is along three axes:
     </p>
-    <p class="lede">
-      For <b>modified action parameters</b>, we change the action hyperparameters
-      <span class="var">R<sub>a</sub></span> and <span class="var">M<sub>a</sub></span> at test
-      time, with <span class="var">&tau; = 125</span> and <span class="var">c = 0.1</span> fixed.
-      The agent does not observe these hyperparameters. For a <b>rescaled kernel radius</b>, we
-      deploy the agent across <span class="var">&rho; &isin; {4, 6, 8, &hellip;, 26}</span>,
-      proportionally adjusting the action radius and grid size (linearly) and the target masses
-      (quadratically), so that the ratio between action scale, target mass and pattern size stays
-      roughly constant. This is a demanding form of generalization: rescaling the kernel does not
-      simply scale the emerging patterns, but can fundamentally alter their behavior due to
-      discretization effects. Since the policy network is fully convolutional, it can be deployed on
-      different grid sizes without modification.
-    </p>
+    <ul class="blist">
+      <li><b>Modified action parameters.</b> Can the agent still act effectively when its own
+        interventions change in reach and in strength, while the world stays the same?</li>
+      <li><b>Rescaled update rule kernels.</b> Can it handle its training rules stretched to a
+        different spatial scale, where the same patterns appear larger or smaller?</li>
+      <li><b>Entirely novel update rules.</b> Can it handle rules it never trained on, which
+        support an entirely different repertoire of patterns?</li>
+    </ul>
+    <details>
+      <summary><span>Modified action parameters</span></summary>
+      <p class="lede">
+        An intervention is a tuple <span class="var">a<sup>t</sup> = (x, y, &delta;)</span> with
+        <span class="var">&delta; &isin; {&minus;1, 0, +1}</span>: it changes every cell within
+        radius <span class="var">R<sub>a</sub></span> of <span class="var">(x, y)</span> by
+        <span class="var">&delta; &middot; M<sub>a</sub></span>, clipped to
+        <span class="var">[0, 1]</span> &mdash; remove mass, do nothing, or add it. In training
+        these two hyperparameters are fixed at <span class="var">R<sub>a</sub> = 5</span> and
+        <span class="var">M<sub>a</sub> = 0.3</span>, so the agent's only choice at each step is
+        where to act and which of the three action types to use.
+      </p>
+      <p class="lede">
+        Here we change <span class="var">R<sub>a</sub></span> and
+        <span class="var">M<sub>a</sub></span> at test time, with
+        <span class="var">&tau; = 125</span> and <span class="var">c = 0.1</span> fixed. The agent
+        does not observe these hyperparameters.
+      </p>
+      <figure class="sidefig">
+        <div class="plate solo"><img src="assets/figures/action_gen_soliton_pct.svg" loading="lazy" alt="Heatmap of soliton creation rate over action radius and action magnitude, with a red square marking the training condition. A bright band runs along the curve where the product of the two is constant."></div>
+        <div class="key-row">
+          <span class="item"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" style="color:var(--k-box)"><rect x="4.6" y="4.6" width="10.8" height="10.8" fill="none" stroke="currentColor" stroke-width="2.4"/></svg><span>Action radius and magnitude seen in training; outside it is test time only</span></span>
+        </div>
+        <figcaption><b>The agent adapts to action parameters it never saw.</b> Performance holds
+          wherever <span class="var">R<sub>a</sub> &middot; M<sub>a</sub></span> stays near its
+          training value and degrades gracefully away from that curve. It reaches zero only where
+          actions are too weak to seed any mass.</figcaption>
+      </figure>
+    </details>
 
-    <figure class="keyfig" style="--vg:1.2fr 1fr">
-      <div class="pair vg">
-        <div class="plate"><img src="assets/figures/action_gen_soliton_pct.svg" loading="lazy" alt="Heatmap of soliton creation rate over action radius and action magnitude, with a red square marking the training condition. A bright band runs along the curve where the product of the two is constant."></div>
-        <div class="plate"><img src="assets/figures/unseen_radii_soliton_pct.svg" loading="lazy" alt="Line plot of soliton formation rate against kernel radius for CARL, the best heuristic baseline, and no-op. CARL peaks at the training radius and stays above both baselines everywhere."></div>
-      </div>
-      <div class="key-row">
-        <span class="item"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" style="color:var(--k-box)"><rect x="4.6" y="4.6" width="10.8" height="10.8" fill="none" stroke="currentColor" stroke-width="2.4"/></svg><span>Action radius and magnitude seen in training; outside it is test time only</span></span>
-      </div>
-      <figcaption class="split vg">
-        <div><b>The agent adapts to action parameters it never saw.</b> Performance holds where
-          <span class="var">R<sub>a</sub> &middot; M<sub>a</sub></span> is close to its training
-          value &mdash; that is, where the integrated effect of each action matches training
-          conditions &mdash; and degrades gracefully away from that curve. It drops to zero only
-          for low-impact settings, where individual actions are too weak to seed or sustain any
-          mass.</div>
-        <div><b>The agent adapts to Lenia worlds at other scales.</b> Performance drops away from the
-          training radius, but the agent still creates solitons at a relatively high rate even for
-          kernels double or half the training size, remaining well above the no-op baseline across
-          all tested radii. The drop is sharper for down-scaled kernels, likely due to
-          discretization effects.</div>
-      </figcaption>
-    </figure>
+    <details>
+      <summary><span>Rescaled update rule kernels</span></summary>
+      <p class="lede">
+        We deploy the agent across
+        <span class="var">&rho; &isin; {4, 6, 8, &hellip;, 26}</span>, proportionally adjusting the
+        action radius and grid size (linearly) and the target masses (quadratically), so that the
+        ratio between action scale, target mass and pattern size stays roughly constant. Since the
+        policy network is fully convolutional, it can be deployed on different grid sizes without
+        modification.
+      </p>
+      <figure class="sidefig">
+        <div class="plate solo"><img src="assets/figures/unseen_radii_soliton_pct.svg" loading="lazy" alt="Line plot of soliton formation rate against kernel radius for CARL, the best heuristic baseline, and no-op. CARL peaks at the training radius and stays above both baselines everywhere."></div>
+        <figcaption><b>The agent adapts to rescaled Lenia worlds.</b> Solitons still form at a high
+          rate for kernels double or half the training size, well above no-op at every radius. The
+          drop is sharper for down-scaled kernels, likely from discretization effects.</figcaption>
+      </figure>
+      <p class="lede">
+        Rescaling the kernel is not a change of zoom. The lattice stays discrete while the kernel
+        grows or shrinks around it, so rescaling does not simply scale the emerging patterns but
+        can alter their behavior through discretization effects. The same update rule at different
+        radii produces solitons with different shapes, sizes, movement patterns and levels of
+        robustness, as the mosaic below illustrates.
+      </p>
+      <figure class="keyfig" style="margin:18px 0 24px">
+        <div class="rmosaic" role="img" aria-label="A mosaic of whole Lenia worlds at three kernel radii, every world drawn at the same cells-per-pixel. Sixteen small worlds at radius six, four worlds of twice the width at radius twelve, and one world of four times the width at radius twenty-four, each holding a soliton the agent created.">
+        <div class="rblock" style="--t:38;--n:4">
+          <div class="tiles">
+            <div class="frame"><video autoplay muted playsinline loop preload="metadata"><source src="assets/videos/radii/rho6_rule4.mp4" type="video/mp4"></video></div>
+            <div class="frame"><video autoplay muted playsinline loop preload="metadata"><source src="assets/videos/radii/rho6_rule10.mp4" type="video/mp4"></video></div>
+            <div class="frame"><video autoplay muted playsinline loop preload="metadata"><source src="assets/videos/radii/rho6_rule13.mp4" type="video/mp4"></video></div>
+            <div class="frame"><video autoplay muted playsinline loop preload="metadata"><source src="assets/videos/radii/rho6_rule16.mp4" type="video/mp4"></video></div>
+            <div class="frame"><video autoplay muted playsinline loop preload="metadata"><source src="assets/videos/radii/rho6_rule41.mp4" type="video/mp4"></video></div>
+            <div class="frame"><video autoplay muted playsinline loop preload="metadata"><source src="assets/videos/radii/rho6_rule42.mp4" type="video/mp4"></video></div>
+            <div class="frame"><video autoplay muted playsinline loop preload="metadata"><source src="assets/videos/radii/rho6_rule45.mp4" type="video/mp4"></video></div>
+            <div class="frame"><video autoplay muted playsinline loop preload="metadata"><source src="assets/videos/radii/rho6_rule46.mp4" type="video/mp4"></video></div>
+            <div class="frame"><video autoplay muted playsinline loop preload="metadata"><source src="assets/videos/radii/rho6_rule48.mp4" type="video/mp4"></video></div>
+            <div class="frame"><video autoplay muted playsinline loop preload="metadata"><source src="assets/videos/radii/rho6_rule50.mp4" type="video/mp4"></video></div>
+            <div class="frame"><video autoplay muted playsinline loop preload="metadata"><source src="assets/videos/radii/rho6_rule54.mp4" type="video/mp4"></video></div>
+            <div class="frame"><video autoplay muted playsinline loop preload="metadata"><source src="assets/videos/radii/rho6_rule56.mp4" type="video/mp4"></video></div>
+            <div class="frame"><video autoplay muted playsinline loop preload="metadata"><source src="assets/videos/radii/rho6_rule64.mp4" type="video/mp4"></video></div>
+            <div class="frame"><video autoplay muted playsinline loop preload="metadata"><source src="assets/videos/radii/rho6_rule66.mp4" type="video/mp4"></video></div>
+            <div class="frame"><video autoplay muted playsinline loop preload="metadata"><source src="assets/videos/radii/rho6_rule67.mp4" type="video/mp4"></video></div>
+            <div class="frame"><video autoplay muted playsinline loop preload="metadata"><source src="assets/videos/radii/rho6_rule84.mp4" type="video/mp4"></video></div>
+          </div>
+          <span class="slab">&rho; = 6</span>
+        </div>
+        <div class="rblock" style="--t:77;--n:2">
+          <div class="tiles">
+            <div class="frame"><video autoplay muted playsinline loop preload="metadata"><source src="assets/videos/radii/rho12_rule20.mp4" type="video/mp4"></video></div>
+            <div class="frame"><video autoplay muted playsinline loop preload="metadata"><source src="assets/videos/radii/rho12_rule73.mp4" type="video/mp4"></video></div>
+            <div class="frame"><video autoplay muted playsinline loop preload="metadata"><source src="assets/videos/radii/rho12_rule55.mp4" type="video/mp4"></video></div>
+            <div class="frame"><video autoplay muted playsinline loop preload="metadata"><source src="assets/videos/radii/rho12_rule39.mp4" type="video/mp4"></video></div>
+          </div>
+          <span class="slab">&rho; = 12</span>
+        </div>
+        <div class="rblock" style="--t:154;--n:1">
+          <div class="tiles">
+            <div class="frame"><video autoplay muted playsinline loop preload="metadata"><source src="assets/videos/radii/rho24_rule15.mp4" type="video/mp4"></video></div>
+          </div>
+          <span class="slab">&rho; = 24</span>
+        </div>
+        </div>
+        <figcaption><b>Solitons the agent created at three kernel radii</b>, none of them the
+          training radius <span class="var">&rho; = 10</span>. Each tile is a whole world, drawn at
+          the same cells-per-pixel: the grid scales with <span class="var">&rho;</span>, so a world
+          at <span class="var">&rho; = 24</span> is four times one at
+          <span class="var">&rho; = 6</span> across. Every clip within a block runs a different
+          update rule. At <span class="var">&rho; = 6</span> a soliton spans a handful of cells; at
+          <span class="var">&rho; = 24</span> the same kind of object resolves internal structure
+          the smaller grids cannot.</figcaption>
+      </figure>
+      <p class="lede">
+        This axis also carries a practical benefit. Grid size scales with
+        <span class="var">&rho;</span>, and a Lenia step costs roughly the square of the grid width,
+        so training at a small radius and deploying at a large one amounts to fitting a controller
+        in a cheap simulator and running it at high fidelity. Since the kernel radius, grid size and
+        action scale are adjusted together, transfer along this axis requires absorbing a shift in
+        dynamics, world size and action scale at once, none of which the agent observes.
+      </p>
+    </details>
 
-    <p class="lede">
-      <b>Novel update rules.</b> Finally, we deploy CARL on unseen convolutional kernels. We select
-      seven kernels <span class="var">K</span> not included in the training set and sweep across
-      growth function parameters <span class="var">&mu; &isin; {0.2, 0.205, &hellip;, 0.4}</span> and
-      <span class="var">&sigma; &isin; {0.02, 0.022, &hellip;, 0.06}</span>, with
-      <span class="var">&tau; &isin; {50, 100, 150, 200, 250}</span> and
-      <span class="var">c = 0.1</span>, at kernel radii
-      <span class="var">&rho; &isin; {10, 14, 18}</span>.
-      <b>A trained agent can map soliton regions of new update rule spaces</b>, charting which
-      combinations of kernel and growth parameters support solitons. CARL discovers solitons across a
-      range of unseen kernels, though the success rate varies considerably from kernel to kernel
-      &mdash; some admit large regions of soliton-supporting parameters, while others are far more
-      restrictive. We show three of the seven kernels below.
-    </p>
+    <details>
+      <summary><span>Entirely novel update rules</span></summary>
+      <p class="lede">
+        Finally, we deploy CARL on unseen convolutional kernels. We select seven kernels
+        <span class="var">K</span> not included in the training set and sweep across growth
+        function parameters <span class="var">&mu; &isin; {0.2, 0.205, &hellip;, 0.4}</span> and
+        <span class="var">&sigma; &isin; {0.02, 0.022, &hellip;, 0.06}</span>, with
+        <span class="var">&tau; &isin; {50, 100, 150, 200, 250}</span> and
+        <span class="var">c = 0.1</span>, at kernel radii
+        <span class="var">&rho; &isin; {10, 14, 18}</span>.
+        <b>A trained agent can map soliton regions of new update rule spaces</b>, charting which
+        combinations of kernel and growth parameters support solitons. CARL discovers solitons across a
+        range of unseen kernels, though the success rate varies considerably from kernel to kernel
+        &mdash; some admit large regions of soliton-supporting parameters, while others are far more
+        restrictive. We show three of the seven kernels below.
+      </p>
 
-    <figure>
-      <div class="pair">
-        <div class="plate"><img src="assets/figures/novel_rules_grid_soliton_pct.svg" loading="lazy" alt="A three by three grid of heatmaps over growth centre mu and growth width sigma, for three unseen kernels and three kernel radii, showing where solitons form."></div>
-        <div class="plate"><img src="assets/figures/novel_rules_grid_mean_final_mass_soliton.svg" loading="lazy" alt="The same three by three grid, showing mean soliton mass instead of formation rate."></div>
-      </div>
-      <figcaption class="split">
-        <div><b>Likelihood of soliton creation</b> as a function of the growth function parameters
-          <span class="var">(&mu;, &sigma;)</span>, for a fixed kernel and radius.</div>
-        <div><b>Mean soliton mass</b> under the same conditions.</div>
-      </figcaption>
-    </figure>
+      <figure>
+        <div class="pair">
+          <div class="plate"><img src="assets/figures/novel_rules_grid_soliton_pct.svg" loading="lazy" alt="A three by three grid of heatmaps over growth centre mu and growth width sigma, for three unseen kernels and three kernel radii, showing where solitons form."></div>
+          <div class="plate"><img src="assets/figures/novel_rules_grid_mean_final_mass_soliton.svg" loading="lazy" alt="The same three by three grid, showing mean soliton mass instead of formation rate."></div>
+        </div>
+        <figcaption class="split">
+          <div><b>Likelihood of soliton creation</b> as a function of the growth function parameters
+            <span class="var">(&mu;, &sigma;)</span>, for a fixed kernel and radius.</div>
+          <div><b>Mean soliton mass</b> under the same conditions.</div>
+        </figcaption>
+      </figure>
+    </details>
 
+    <!-- The novel-rule gallery stays outside the fold: it is the payoff of the whole
+         generalization argument, and reads on its own without the sweep details. -->
     <figure>
       <div class="gallery g7" aria-label="Twenty-one Lenia boards, each running an update rule outside the training set, ordered by growth centre and growth width.">
         <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.2000, sigma 0.0280."><source src="assets/videos/novel-rules/soliton_mu0.2000_sigma0.0280.mp4" type="video/mp4"></video></div>
@@ -887,16 +1104,16 @@
         <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.3400, sigma 0.0560."><source src="assets/videos/novel-rules/1_soliton_mu0.3400_sigma0.0560.mp4" type="video/mp4"></video></div>
         <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.3600, sigma 0.0580."><source src="assets/videos/novel-rules/soliton_mu0.3600_sigma0.0580.mp4" type="video/mp4"></video></div>
       </div>
-      <figcaption><b>CARL discovers diverse solitons.</b> A hand-picked selection from the
+      <figcaption><b>CARL discovers diverse solitons when deployed on unseen update rules.</b> A hand-picked selection from the
         novel-rule sweep experiment.</figcaption>
     </figure>
-
-    <a class="try" href="soliton_creation_demo.html">Create a soliton yourself, in the browser &rarr;</a>
   </section>
 
   <section id="steering">
-    <h3>2 &middot; Steering solitons</h3>
-    <p class="sec-ref">Soliton Direction Task &middot; Fig. 6</p>
+    <div class="sec-head">
+      <h3>2 &middot; Steering solitons</h3>
+      <a class="try" href="soliton_steering_demo.html">Steer a soliton yourself &rarr;</a>
+    </div>
     <p class="lede">
       To demonstrate that CARL can control self-organizing phenomena, not only create them, we train
       a new agent on a task where it must steer a soliton toward a target direction. Each
@@ -910,6 +1127,40 @@
       direction with a mass penalty, as in the previous task, here holding the mass of the initial
       state.
     </p>
+
+    <!-- Same fold as the creation task: the formal goal space and reward for readers reproducing
+         the steering setup, skippable by everyone else. -->
+    <details>
+      <summary><span>Goal space and reward, more formally</span></summary>
+      <div style="margin-top:14px">
+      <p class="lede">
+        The goal space is
+        <span class="var">&#x1D4A2; = &#x1D49F; &times; &#x1D49E; &times; &#x1D4AE;</span>, where
+        <span class="var">&#x1D49F;</span> is the unit circle of target directions,
+        <span class="var">&#x1D49E;</span> the set of action costs, and <span class="var">&#x1D4AE;</span>
+        the set of 48 solitons the creation agent discovered in the kernel-scaling test at radius
+        <span class="var">&rho; = 18</span> &mdash; the larger radius is used because solitons at
+        smaller radii tend to move chaotically. At the start of each 200-step episode CARL uniformly
+        samples a goal <span class="var">g = (d, c, s)</span>: a unit direction
+        <span class="var">d</span>, an action cost <span class="var">c &isin; [0, 5]</span>, and a
+        soliton <span class="var">s</span>, which is placed on the 115&times;115 grid under its own
+        update rule and randomly rotated. The reward at each step is
+      </p>
+      <div class="eq">r = cos(v<sup>t</sup>, d) &minus; &lambda; &middot; &radic;<span class="rad">|M<sup>t</sup> &minus; &tau;| / N</span> &minus; c &middot; <b>1</b>[&delta;<sup>t</sup> &ne; 0]</div>
+      <p class="lede">
+        where <span class="var">v<sup>t</sup></span> is the soliton's center-of-mass displacement
+        over the last four timesteps, so <span class="var">cos(v<sup>t</sup>, d)</span> scores how
+        well its current heading aligns with the target direction. The remaining two terms are the
+        creation task's reward carried over: a mass penalty with weight
+        <span class="var">&lambda; = 0.2</span>, whose target <span class="var">&tau; = M<sup>0</sup></span>
+        is the mass of the initial state &mdash; it keeps the agent from steering by simply
+        destroying and rebuilding the pattern &mdash; and the same per-intervention charge, weighted
+        by the sampled action cost <span class="var">c</span>. The alignment term is
+        <span class="var">O(1)</span> per step, so the action cost is sampled over a correspondingly
+        wider range than in the creation task.
+      </p>
+      </div>
+    </details>
 
     <figure class="keyfig">
       <div class="strip">
@@ -947,7 +1198,7 @@
           </video>
         </div>
         <div class="plate chart">
-          <img src="assets/figures/steering_direction_generalisation.svg" loading="lazy" alt="Bar chart of mean cosine similarity on a two-by-two grid of train and holdout solitons crossed with train and holdout target directions.">
+          <img src="assets/figures/steering_direction_generalization.svg" loading="lazy" alt="Bar chart of mean cosine similarity on a two-by-two grid of train and holdout solitons crossed with train and holdout target directions.">
         </div>
       </div>
       <figcaption><b>Left: a steering episode at full speed</b> &mdash; the same run the strip above
@@ -964,16 +1215,16 @@
         indicates that the mapping from direction to intervention pattern is only partially
         learned.</figcaption>
     </figure>
-
-    <a class="try" href="soliton_steering_demo.html">Steer a soliton yourself, in the browser &rarr;</a>
   </section>
 
   <section id="human">
-    <h3>3 &middot; A human in the loop</h3>
-    <p class="sec-ref">Human-in-the-Loop &middot; Fig. 7</p>
+    <div class="sec-head">
+      <h3>3 &middot; A human in the loop</h3>
+      <a class="try" href="soliton_steering_demo.html">Drive a soliton through the maze yourself &rarr;</a>
+    </div>
     <p class="lede">
       We demonstrate how trained CARL agents can serve as real-time interfaces for human control. We
-      extend the direction environment with procedurally generated mazes, where walls are
+      extend the steering environment with procedurally generated mazes, where walls are
       regions in which grid values are fixed to zero. A soliton is placed in the maze, and the user
       can modify the agent's goal (the target direction) and the action cost in real
       time, steering the soliton through the maze.
@@ -1009,14 +1260,10 @@
         </div>
       </div>
       <figcaption class="split">
-        <div class="full"><b>Eight episodes, four of each outcome.</b> Blue and orange arrows
-          represent target and current movement directions, respectively; the glowing marker is the
-          destination the user is steering toward.</div>
-        <div>The soliton is redirected at each junction and arrives intact &mdash; note how well its
-          shape is preserved throughout.</div>
-        <div>The two ways it goes wrong. The pattern either thins out until too little of it remains
-          to steer, or it destabilizes and spreads across the grid. Neither is recoverable: once a
-          soliton has lost its coherent form, the agent cannot rebuild it.</div>
+        <div><b>Successful trials.</b> The soliton is redirected at each junction and arrives intact.</div>
+  
+        <div><b>Failure modes.</b> The soliton either dissipates and cannot be recovered, or starts spreading
+        uncontrollably. </div>
       </figcaption>
     </figure>
 
@@ -1033,8 +1280,6 @@
       costs can also lead to failure, as interventions become too sparse to maintain the soliton's
       shape after perturbations, and the agent generally cannot recover a disrupted pattern.
     </p>
-
-    <a class="try" href="soliton_steering_demo.html">Drive a soliton through the maze yourself &rarr;</a>
   </section>
 
   <section id="discussion">
@@ -1042,8 +1287,9 @@
     <p class="lede">
       Rather than setting initial conditions and passively observing outcomes, a goal-conditioned
       policy here observes the evolving system and applies minimal, local perturbations toward
-      diverse self-generated goals. Instantiated on Lenia, this discovers solitons across a wide
-      range of update rules and procedurally generated initial states, generalizes to
+      diverse self-generated goals. Instantiated on Lenia as an
+      agentic system we call CARL, the framework discovers solitons across a wide range of
+      update rules and procedurally generated initial states, generalizes to
       out-of-distribution conditions, maps novel update rule spaces to find the regions that
       support solitons, and &mdash; with a second policy &mdash; controls the solitons it finds.
     </p>
@@ -1056,7 +1302,7 @@
       shape of behavior &mdash; a brief perturbation, then withdrawal.
     </p>
     <p class="lede">
-      Because the policies generalize rather than overfit, they can be reused and composed beyond
+      Because CARL's policies generalize rather than overfit, they can be reused and composed beyond
       their training objective. The maze is the demonstration: a human sets subgoals while the
       policy handles low-level control in real time. That points toward hierarchical control, where
       a higher-level agent, not a person, sets those subgoals &mdash; and toward artificial

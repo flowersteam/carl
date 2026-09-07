@@ -13,7 +13,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:,">
 <title>CARL Soliton Steering Demo</title>
-<meta name="description" content="Steer a CARL soliton through a maze in real time. Click where you want it to go (or use arrow keys) and the trained direction-steering agent works out the low-level interventions -- exactly the human-in-the-loop setup from the paper's third experiment.">
+<meta name="description" content="Steer a CARL soliton through a maze in real time. Click where you want it to go (or use arrow keys) and the trained steering agent works out the low-level interventions -- exactly the human-in-the-loop setup from the paper's third experiment.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -241,8 +241,8 @@
     <nav class="intro-links" aria-label="Project links">
       <a href="index.html">Main page</a>
       <a href="https://direct.mit.edu/isal/proceedings/isal2026/38/45/138193" target="_blank" rel="noopener">Paper</a>
-      <a href="soliton_creation_demo.html">Soliton creation demo</a>
       <a href="https://github.com/markocvjetko/carl-release" target="_blank" rel="noopener">Code</a>
+      <a href="soliton_creation_demo.html">Soliton creation demo</a>
     </nav>
   </div>
   <p class="notice">
@@ -355,11 +355,13 @@
 const CFG = {
   K: 4,                       // frame stack
   R: 18,                      // kernel radius (fixed -- all 48 training solitons share it)
-  netSize: 96,                 // the model was trained on 96x96 toroidal grids with no mazes --
-                                // every inference call crops a 96x96 toroidal window centered on
-                                // the soliton's CoM out of the (larger) maze board, so the model
-                                // always sees input matching its training distribution regardless
-                                // of the selected board size, and runs faster to boot.
+  netSize: 96,                 // inference crop window -- not a training board size. The model was
+                               // trained on 115x115 toroidal grids with no mazes (meta_direction.json);
+                               // it is fully convolutional, so every inference call crops a 96x96
+                               // toroidal window centered on the soliton's CoM out of the (larger)
+                               // maze board. The soliton then sits in a neighbourhood close to the
+                               // one it was trained in whatever board size is selected, and the
+                               // smaller window runs faster to boot.
   dt: 0.1,
   actionValue: [0.3, -0.3, 0.0],  // add / remove / no-op (output channel order)
   actionRadius: 7,
@@ -657,7 +659,7 @@ function applyWallCollision(){
 function pushStack(){ stack.push(Float32Array.from(state)); if(stack.length>CFG.K) stack.shift(); }
 function fillStack(){ stack=[]; for(let i=0;i<CFG.K;i++) stack.push(Float32Array.from(state)); }
 // Crops a CFG.netSize toroidal window out of each stacked frame, centered on the soliton's
-// current CoM -- matches the fixed-size grid the model was trained on (see CFG.netSize) instead
+// current CoM -- keeps the model's input at a fixed, training-scale size (see CFG.netSize) instead
 // of feeding it the full, much larger maze board. Returns the crop's board-space origin too, so
 // the caller can map the model's per-pixel output back to board coordinates.
 function agentWindowOrigin(cy,cx){
