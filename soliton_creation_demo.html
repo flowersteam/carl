@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Injects COOP/COEP response headers via a service worker so the page becomes cross-origin
+     isolated — required for real SharedArrayBuffer support, which onnxruntime-web needs to run
+     threaded WASM inference. Kept in place (and matching soliton_steering_demo.html) even though this
+     page pins itself to one thread, so raising the thread count is a one-line change rather than
+     a hosting change. Neither a plain static file server nor GitHub Pages can set those headers
+     directly, hence the client-side workaround. First-ever visit triggers one extra reload while
+     the service worker activates. -->
+<script src="coi-serviceworker.js"></script>
+<script>try{if(localStorage.getItem('carl-theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>CARL Soliton Creation Demo</title>
+<meta name="description" content="Run the trained CARL mass-control agent live in your browser. The neural network executes on your own hardware via ONNX Runtime Web. Hand it a target mass and watch it nudge a self-organizing Lenia into solitons — or take the controls yourself.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- ONNX Runtime Web: the trained net runs client-side (WASM / WebGPU) on the user's hardware -->
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.webgpu.min.js"></script>
+<style>
+  :root{
+    --bg:#f6f3f7;--raised:#ffffff;--screen:#161019;--line:#e6dfe9;--line2:#d9cee0;
+    --ink:#241a2c;--muted:#6a5c76;--faint:#8f8298;--m4:#b85527;--accent:#c96a34;--accent2:#c02955;
+    --good:#1f8f52;--ramp:linear-gradient(90deg,rgba(184,85,39,.3),rgba(192,41,85,.3));
+    --magma:linear-gradient(90deg,#3b0f70,#8c2981,#de4968,#fe9f6d,#fcfdbf);
+    --glowA:rgba(222,73,104,.07);--glowB:rgba(59,15,112,.06);--shadow:0 20px 60px -30px rgba(60,20,40,.18);
+  }
+  :root[data-theme="dark"]{
+    --bg:#0b0710;--raised:#150c20;--screen:#070409;--line:#2a1d3a;--line2:#3b2a4d;
+    --ink:#ece6f3;--muted:#a195b4;--faint:#6c5f80;--m4:#fe9f6d;--accent:#fca96b;--accent2:#de4968;
+    --good:#53b979;--ramp:linear-gradient(90deg,rgba(254,159,109,.28),rgba(222,73,104,.28));
+    --magma:linear-gradient(90deg,#3b0f70,#8c2981,#de4968,#fe9f6d,#fcfdbf);
+    --glowA:rgba(222,73,104,.10);--glowB:rgba(59,15,112,.28);--shadow:0 30px 90px -40px rgba(222,73,104,.4);
+  }
+  *{box-sizing:border-box}
+  /* Reserve the scrollbar gutter so a transiently-appearing scrollbar never changes the
+     content width — otherwise the (width-bound) canvas resizes and snaps back each frame. */
+  html{scrollbar-gutter:stable;background:var(--bg)}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Inter",system-ui,sans-serif;
+       -webkit-font-smoothing:antialiased;line-height:1.5}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(60% 50% at 82% 4%,var(--glowA),transparent 60%),
+               radial-gradient(55% 45% at 6% 96%,var(--glowB),transparent 60%)}
+  .wrap{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:18px 22px 16px}
+  .eyebrow{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.2em;
+           text-transform:uppercase;color:var(--faint)}
+  .topbar{display:flex;align-items:center;justify-content:flex-end;gap:10px}
+  .theme-toggle{width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;
+    font-size:14px;line-height:1;color:var(--muted);flex:0 0 auto}
+  h1{font-family:"Fraunces",serif;font-weight:600;font-size:clamp(22px,3vw,30px);margin:4px 0 0;letter-spacing:-.01em}
+  h1 em{font-style:italic;font-weight:500;color:var(--m4)}
+  a{color:var(--accent)}
+
+  /* Intro block above the demo. Carries the provenance (paper, venue, authors), the one fact
+     that is not obvious from looking at the board -- the trained net runs live, client-side --
+     and a single line on what this particular demo shows. Deliberately short: the companion
+     site holds the full story, so this only has to orient someone who landed here first. */
+  p.eyebrow{margin:12px 0 0}
+  .intro{max-width:740px;margin:10px 0 18px}
+  .intro p{margin:0 0 7px;font-size:13px;line-height:1.6;color:var(--muted)}
+  .intro .paper-ref{font-size:12.5px;color:var(--faint)}
+  .intro .paper-ref em{font-style:italic}
+  .intro .paper-ref a{color:inherit;text-decoration-color:var(--line2);text-underline-offset:2px}
+  .intro .paper-ref a:hover{text-decoration-color:var(--accent)}
+  .intro b{color:var(--ink);font-weight:600}
+  .intro a b{color:inherit}
+  .intro .hint{color:var(--faint);font-size:12.5px}
+  .intro-links{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:11px;font-size:12.5px}
+  .intro-links a{text-decoration:none;border-bottom:1px solid var(--line2);padding-bottom:1px}
+  .intro-links a:hover{border-bottom-color:var(--accent)}
+
+  /* Performance notice. Everything here is computed client-side on the CPU, so a slow machine
+     shows up as a stuttering board rather than a slow server -- worth saying up front, next to
+     the two controls (board size, simulation fps) that actually fix it. */
+  .notice{margin:0 0 18px;padding:10px 13px;
+          border-left:2px solid var(--accent);background:var(--raised);
+          border-radius:0 6px 6px 0;font-size:12.5px;line-height:1.6;color:var(--muted)}
+  .notice b{color:var(--ink);font-weight:600}
+  /* Spans the canvas column plus the first controls column, so its right edge lands on the
+     same line as the "Soliton recipe" panel. The stage is [1fr | 18px | 520px] and that 520px
+     block is two 1fr columns with a 12px gap, i.e. 254px each:
+     (100% - 18 - 520) + 18 + 254  =  100% - 266px. */
+  .notice{max-width:calc(100% - 266px)}
+  @media(max-width:860px){.notice{max-width:100%}}
+
+  .stage{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,520px);gap:18px;align-items:start}
+  @media(max-width:860px){.stage{grid-template-columns:1fr}}
+  .controls{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-content:start}
+  @media(max-width:560px){.controls{grid-template-columns:1fr}}
+
+  /* canvas screen */
+  .screen-wrap{background:var(--raised);border:1px solid var(--line);border-radius:14px;padding:12px;
+    box-shadow:var(--shadow)}
+  .canvas-box{position:relative;background:var(--screen);border-radius:10px;overflow:hidden;
+    aspect-ratio:1;width:min(100%,50vh);margin:0 auto;display:flex;align-items:center;justify-content:center}
+  #lenia{width:100%;height:100%;image-rendering:pixelated;display:block;touch-action:none}
+  #lenia.manual{cursor:cell}
+  #overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  .badge{position:absolute;top:8px;left:8px;font-family:"IBM Plex Mono",monospace;font-size:10.5px;
+    letter-spacing:.1em;text-transform:uppercase;padding:5px 10px;border-radius:9px;
+    background:rgba(12,7,17,.86);border:1px solid rgba(255,255,255,.16);color:rgba(255,255,255,.82);
+    box-shadow:0 6px 24px -10px rgba(0,0,0,.8);backdrop-filter:blur(4px)}
+  .badge.you{color:#fca96b}
+  /* nowrap *within* a stat + tabular digits ⇒ a stat is never split across lines and its
+     digits are all the same width. The row itself wraps, so a narrow column drops a stat to
+     the next line rather than clipping it. */
+  .readout{display:flex;gap:4px 12px;flex-wrap:wrap;margin-top:10px;
+    font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+  .readout>span{flex:0 0 auto}
+  .readout b{color:var(--ink);font-weight:500}
+  /* ...but tabular digits only equalize the width of ONE digit -- they do nothing about a
+     value GAINING a digit. "steps 9" -> "steps 10", or "infer –" -> "infer 12.3ms", widens
+     the row mid-run, and once the total crosses the column width one stat drops onto a
+     second line and shoves the whole page down. So every live value reserves room for its
+     widest reading up front: the row's width is then fixed, and where it wraps depends only
+     on the window, never on what the numbers currently are. Values that can outgrow their
+     slot (a very long run) just push as they used to -- the reservation covers the range
+     these actually move through. */
+  .readout b{display:inline-block;text-align:left}
+  #r-step,#r-act{min-width:4.5ch}
+  #r-ms{min-width:6.5ch}
+  #r-rate{min-width:4.5ch}
+  #r-clock{min-width:4ch}
+  .readout .k{color:var(--faint)}
+
+  .transport{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center}
+  button{font-family:"Inter",sans-serif;font-size:13px;font-weight:500;color:var(--ink);
+    background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:8px 12px;cursor:pointer;
+    transition:.14s}
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  button.on{background:var(--ramp);color:var(--ink);border:1px solid var(--accent2);font-weight:600}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .seg button{border:none;border-radius:0;border-right:1px solid var(--line)}
+  .seg button:last-child{border-right:none}
+  .seg button.on{box-shadow:0 0 0 1px var(--accent2) inset}
+  .transport .reset-group{display:inline-flex;gap:6px;margin-left:auto;padding-left:10px;border-left:1px solid var(--line)}
+  @media(max-width:420px){.transport .reset-group{margin-left:0;padding-left:0;border-left:none}}
+
+  /* playback: live/runtime controls kept next to the canvas they affect */
+  .playback{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-top:10px;
+    padding-top:10px;border-top:1px solid var(--line)}
+  .playback .mini{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);flex:1 1 130px}
+  .playback .mini span{white-space:nowrap}
+  .playback .mini input[type=range]{flex:1;min-width:60px}
+  .playback .mini select{flex:1;min-width:60px;padding:5px 7px;font-size:11px}
+  .playback .mini b{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--accent);
+    min-width:46px;text-align:right;font-weight:500}
+  .playback .chk{font-size:11.5px;flex:0 0 auto}
+  .playback .clockrow{flex:1 1 100%;display:flex;align-items:center;gap:10px 18px;flex-wrap:wrap}
+  /* past the range CARL was trained on, a conditioning value is extrapolation -- the
+     readout marks it with an asterisk rather than clamping the slider (matches the maze demo) */
+  .val.ood,.playback .mini b.ood{color:var(--accent2)}
+  .val.ood::after,.playback .mini b.ood::after{content:"*"}
+
+  .info-badge{position:relative;display:inline-flex;align-items:center;justify-content:center;
+    width:14px;height:14px;margin-left:3px;border-radius:50%;background:var(--line2);color:var(--muted);
+    font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:500;cursor:help;
+    vertical-align:2px}
+  .info-badge:hover,.info-badge:focus-visible{background:var(--m4);color:#fff;outline:none}
+  /* Collapsed to a zero-size box while hidden: a visibility:hidden absolute box still counts
+     towards the page's scrollable overflow, and at 210px wide these badges sit close enough to
+     the right edge to put a horizontal scrollbar on the page before anyone hovers. Width and
+     padding snap (they are not in the transition list), so the fade still reads as a fade. */
+  .info-badge::after{content:attr(data-tip);position:absolute;z-index:20;top:calc(100% + 10px);left:0;
+    width:0;background:var(--raised);color:var(--ink);border:1px solid var(--line2);
+    border-radius:10px;box-shadow:var(--shadow);padding:0;
+    font-family:"Inter",sans-serif;font-size:11.5px;font-weight:400;line-height:1.5;
+    text-transform:none;letter-spacing:normal;white-space:normal;text-align:left;
+    opacity:0;visibility:hidden;pointer-events:none;transform:translateY(-4px);
+    overflow:hidden;   /* at width:0 the text still spills out of the box and counts as page overflow */
+    transition:opacity .15s ease,transform .15s ease}
+  /* collapsed while hidden for the same reason as the tooltip body -- 12px of transparent
+     border on a badge near the right edge is still 12px of page overflow */
+  .info-badge::before{content:"";position:absolute;z-index:21;top:100%;left:10px;margin-top:4px;
+    border:0 solid transparent;border-bottom-color:var(--raised);filter:drop-shadow(0 -1px 0 var(--line2));
+    opacity:0;visibility:hidden;pointer-events:none;transition:opacity .15s ease}
+  .info-badge:hover::after,.info-badge:focus-visible::after{opacity:1;visibility:visible;transform:translateY(0);
+    width:210px;padding:10px 12px}
+  /* flipped by the script below when a left-anchored tooltip would not fit on the page */
+  .info-badge.flip::after{left:auto;right:0}
+  .info-badge.flip::before{left:auto;right:10px}
+  .info-badge:hover::before,.info-badge:focus-visible::before{opacity:1;visibility:visible;border-width:6px}
+
+
+  .board-legend{display:flex;flex-wrap:wrap;gap:5px 13px;justify-content:center;align-items:center;
+       font-size:10.5px;color:var(--muted);margin:10px 0 0;line-height:1.4}
+  .board-legend span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .board-legend span[hidden]{display:none}
+  .board-legend i{flex:none;display:inline-block}
+  .board-legend i.disc{width:12px;height:12px;border-radius:50%;border:2px solid}
+  .board-legend i.disc.add{border-color:rgb(83,185,121);background:rgba(83,185,121,.3)}
+  .board-legend i.disc.rem{border-color:rgb(222,73,104);background:rgba(222,73,104,.3)}
+  .board-legend i.tick{width:3px;height:12px;border-radius:1px;background:var(--ink)}
+  .board-legend svg{flex:none;display:block}
+
+  /* controls */
+  .panel{background:var(--raised);border:1px solid var(--line);border-radius:14px;padding:13px 14px}
+  .panel h3{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;
+    color:var(--m4);margin:0 0 10px;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .controls .panel{margin:0}
+  .controls .col{display:flex;flex-direction:column;gap:12px;min-width:0}
+  label.field{display:block;margin:0 0 10px}
+  label.field:last-child{margin-bottom:0}
+  label.field .row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
+  label.field .name{font-size:12.5px;color:var(--ink)}
+  label.field .val{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--accent)}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:3px;
+    background:var(--line2);outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;
+    background:var(--accent);cursor:pointer;box-shadow:0 0 8px rgba(252,169,107,.6)}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border:none;border-radius:50%;
+    background:var(--accent);cursor:pointer}
+  select,input[type=text]{width:100%;font-family:"Inter",sans-serif;font-size:12.5px;color:var(--ink);
+    background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 9px}
+  input[type=text]{font-family:"IBM Plex Mono",monospace;font-size:12px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  /* Read-only preview of what μ, σ, β and R actually define: the kernel a cell sees through,
+     and the growth curve applied to what that kernel returns. Both canvases sit on --screen,
+     which is dark in either theme, so the plot colours need no light/dark variants. */
+  /* Stacked rather than side by side: in a half-width panel, sharing the row leaves the growth
+     curve about as wide as it is tall, which squeezes the bump into a spike. Given the full
+     panel width it reads properly, and the kernel gets to be bigger as its own square. */
+  .rule-viz{display:flex;flex-direction:column;gap:10px;margin-top:12px;padding-top:12px;
+    border-top:1px solid var(--line)}
+  hr.rule-sep{border:none;border-top:1px solid var(--line);margin:10px 0}
+  /* Eq. 1 of the paper, set as real math rather than a line of text. MathML Core is native in
+     every current engine, so this needs no library; the script below swaps in a plain-text form
+     if it ever lands somewhere without it. width:max-content keeps the expression on one line
+     (fit-content lets the engine break it against a narrow panel), and the box scrolls rather
+     than clipping if a panel is ever narrower than the equation. */
+  .rule-eq{margin:0 0 11px;padding:2px 0 11px;border-bottom:1px solid var(--line);
+    color:var(--ink);font-size:14px;overflow-x:auto;overflow-y:hidden}
+  /* No display override here: MathML Core gives <math display="block"> the display type
+     "block math", and setting plain "block" drops the math layout mode -- the children then
+     lay out as ordinary CSS blocks and the expression stacks vertically. */
+  .rule-eq math{margin:0 auto;width:max-content}
+  .rule-eq.fallback{font-family:"IBM Plex Mono",monospace;font-size:11px;text-align:center}
+  .rule-viz figure{margin:0;display:flex;flex-direction:column;gap:5px;min-width:0}
+  .rule-viz canvas{display:block;width:100%;border:1px solid var(--line);border-radius:8px}
+  /* the kernel is a field of weights, so it keeps the board's dark ground; the growth plot is a
+     chart, so it sits on the panel's own paper and flips with the theme */
+  .rule-viz #viz-kernel{aspect-ratio:1;background:var(--screen);image-rendering:pixelated}
+  .rule-viz #viz-growth{height:76px;background:var(--raised)}
+  .rule-viz figcaption{font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--faint);text-align:center;white-space:nowrap}
+  /* The captions name the symbols from the update rule in the panel's tooltip, so they have to
+     stay in that case: uppercasing φ turns it into Φ, a different symbol to the reader. */
+  .rule-viz figcaption .sym{text-transform:none}
+  .chk{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer}
+  .chk input{accent-color:var(--accent);width:14px;height:14px}
+  .tip{font-size:11.5px;color:var(--muted);margin:8px 0 0}
+  /* Mass meter: the demo's whole objective in one strip, directly under the board -- where the
+     grid's mass is right now (magma fill), the window that counts as on target (band), and the
+     target itself (tau marker). The number lives in its own line above the bar rather than in
+     the stat row, because it is the one value the demo is about. */
+  .massmeter{margin-top:11px}
+  .mm-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:6px}
+  .mm-name{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--faint);white-space:nowrap}
+  .mm-read{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted);
+    font-variant-numeric:tabular-nums;white-space:nowrap;display:inline-flex;align-items:baseline;gap:5px}
+  .mm-read #r-mass{font-size:16px;font-weight:500;color:var(--ink);min-width:5.5ch;
+    display:inline-block;text-align:right;transition:color .2s}
+  .mm-read #r-mass.ok{color:var(--good)}
+  .mm-read #r-target{min-width:3.5ch;display:inline-block}
+  .mm-read .k{color:var(--faint)}
+  /* fixed slot: the three states are different lengths, and the row must not reflow mid-run */
+  .mm-state{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);
+    min-width:11ch;display:inline-block;padding-left:8px;margin-left:1px;border-left:1px solid var(--line2)}
+  .mm-state.ok{color:var(--good)}
+  /* the marker sits in the padded shell so it can overhang the bar and carry its label; the
+     track itself clips fill and band to the rounded ends. */
+  .targetbar{position:relative;padding-bottom:14px}
+  .targetbar .track{position:relative;height:10px;border-radius:5px;background:var(--line2);overflow:hidden}
+  .targetbar .fill{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:5px;
+    background:var(--magma)}
+  /* drawn over the fill, not under it: the window has to stay readable exactly when the fill
+     has run into it. Edges carry the meaning, so they stay crisper than the wash. */
+  .targetbar .band{position:absolute;top:0;bottom:0;width:0;background:rgba(255,255,255,.18);
+    border-left:1px solid var(--faint);border-right:1px solid var(--faint)}
+  :root[data-theme="dark"] .targetbar .band{background:rgba(255,255,255,.1)}
+  /* on target: the window's edges light up rather than its wash, which would otherwise tint the
+     magma underneath into mud. The number and the state word carry the rest of the signal. */
+  .targetbar.ok .band{border-color:var(--good);box-shadow:0 0 0 1px var(--good) inset}
+  /* neutral ink rather than a colour of its own: the marker has to stay legible both over the
+     bare track and over the magma fill that runs past it, and the halo (the panel's own paper)
+     is what keeps it readable against the dark end of that gradient. */
+  .targetbar .tick{position:absolute;top:-3px;height:16px;width:2px;margin-left:-1px;border-radius:1px;
+    background:var(--ink);box-shadow:0 0 0 1.5px var(--raised)}
+  .targetbar .tick .lab{position:absolute;left:50%;top:18px;transform:translateX(-50%);
+    font-family:"IBM Plex Mono",monospace;font-size:9.5px;line-height:1;color:var(--muted)}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <button id="theme-toggle" class="theme-toggle" title="Switch to dark mode" aria-label="Toggle dark mode">🌙</button>
+  </div>
+  <p class="eyebrow">ALife 2026 &middot; Toronto</p>
+  <h1><b>CARL</b> Soliton Creation Demo</h1>
+  <div class="intro">
+    <p class="paper-ref">
+      From <a href="index.html"><em>The Artificial Experimentalist: Discovery and Control of
+      Self-Organizing Phenomena with Autotelic Reinforcement Learning</em></a> &mdash;
+      Cvjetko, Hartl, Levin, Moulin-Frier &amp; Oudeyer.
+    </p>
+    <p>CARL is a goal-conditioned reinforcement learning agent that is able to guide the dynamics of
+      <a href="https://en.wikipedia.org/wiki/Lenia" target="_blank" rel="noopener"><b>Lenia</b></a>
+      (continuous cellular automaton) towards desired states through a sequence of local interventions.
+      In this demo, CARL was trained to drive the grid's <b>total mass</b> towards some target value.
+      At each step, CARL can select a spot on the board and either inject or erase mass there.
+      <b>Drag the target &tau; and watch CARL chase it, or pick a soliton recipe to see what it can grow.</b></p>
+    <p class="hint">Hover the <span class="info-badge" tabindex="0" role="note"
+      data-tip="Just like this one. Badges sit next to controls and explain what they do and
+                which values CARL was trained on.">?</span> badges next to the controls for more detail.</p>
+    <nav class="intro-links" aria-label="Project links">
+      <a href="index.html">Main page</a>
+      <a href="https://direct.mit.edu/isal/proceedings/isal2026/38/45/138193" target="_blank" rel="noopener">Paper</a>
+      <a href="soliton_steering_demo.html">Soliton steering demo</a>
+      <a href="https://github.com/markocvjetko/carl-release" target="_blank" rel="noopener">Code</a>
+    </nav>
+  </div>
+  <p class="notice">
+    <b>Performance.</b> The Lenia simulation and the policy network both run on your device, on the
+    CPU only, and are computationally demanding. If playback stutters, reduce the board size, lower
+    the simulation speed, and set your machine to a high-performance power mode. Tested in desktop
+    Chrome and Brave.
+  </p>
+  
+  <div class="stage">
+    <!-- LEFT: canvas + transport -->
+    <div class="screen-wrap">
+      <div class="canvas-box">
+        <canvas id="lenia"></canvas>
+        <canvas id="overlay"></canvas>
+        <div class="badge" id="badge">CARL is acting</div>
+      </div>
+      <div class="massmeter">
+        <div class="mm-head">
+          <span class="mm-name">total mass</span>
+          <span class="mm-read"><b id="r-mass">0</b><span class="k">/</span><b id="r-target">100</b><span class="mm-state" id="r-state">&ndash;</span></span>
+        </div>
+        <div class="targetbar" id="r-bar">
+          <div class="track"><div class="fill" id="r-fill"></div><div class="band" id="r-band"></div></div>
+          <div class="tick" id="r-tick"><span class="lab">&tau;</span></div>
+        </div>
+      </div>
+      <div class="readout">
+        <span title="Simulation steps elapsed"><span class="k">steps</span> <b id="r-step">0</b></span>
+        <span title="Agent actions taken -- steps where CARL added or removed mass (no-ops are not counted)"><span class="k">actions</span> <b id="r-act">0</b></span>
+        <span><span class="k">infer</span> <b id="r-ms">–</b></span>
+        <span><span class="k">rate</span> <b id="r-rate">–</b></span>
+        <span><span class="k">clock</span> <b id="r-clock">0.00</b></span>
+      </div>
+      <div class="transport">
+        <button id="play">Play</button>
+        <button id="step1" title="Pause and advance the simulation by one step (space)">Step</button>
+        <button id="loop" title="Keep CARL acting forever instead of muting after one 150-step episode">Loop</button>
+        <div class="seg" title="Who intervenes on the grid. Switch to You and CARL stops acting -- you place the interventions instead, with the mouse.">
+          <button id="who-agent" class="on">CARL acts</button>
+          <button id="who-you">You act</button>
+        </div>
+        <div class="reset-group">
+          <button id="seed" title="Reseed the grid the way the training environment does -- 20 random actions on an empty board">Seed</button>
+          <button id="clear" title="Empty the grid">Clear</button>
+        </div>
+      </div>
+      <div class="board-legend">
+        <span><i class="disc add"></i>adding mass</span>
+        <span><i class="disc rem"></i>removing mass</span>
+        <span><i class="tick"></i>target mass &tau;</span>
+      </div>
+      <!-- setMode() rewrites this on load; the markup carries that same text so the
+           first paint matches instead of flashing a different line. -->
+      <p class="tip" id="modetip">CARL acts for 150 steps, then pauses so you can watch the pattern evolve. <b>Loop</b> keeps it acting.</p>
+      <div class="playback">
+        <!-- Time step is a policy input, not a world parameter, and it is what the #modetip
+             line above is talking about -- so it lives with the live controls rather than in
+             the "Action & world" panel. Own full-width row, above the fps/Q-map pair. -->
+        <div class="clockrow">
+          <label class="mini">
+            <span>time step t
+              <span class="info-badge" tabindex="0" role="note"
+                    data-tip="CARL was trained on episodes of length 150, and perceives the
+                              time step value. Drag to set it by hand.">?</span>
+            </span>
+            <input type="range" id="clock" min="0" max="1" step="0.005" value="0">
+          </label>
+          <label class="chk">
+            <input type="checkbox" id="clockhold"> freeze time step
+            <span class="info-badge" tabindex="0" role="note"
+                  data-tip="Pins the time step CARL is told it is at, so it keeps acting as though
+                            the episode were always at that point instead of muting at step 150.
+                            The simulation itself keeps running normally.">?</span>
+          </label>
+        </div>
+        <label class="mini" title="How fast the simulation runs, in target steps per second. The readout above shows the actual measured rate.">
+          <span>simulation fps
+            <span class="info-badge" tabindex="0" role="note"
+                  data-tip="Setting the speed too high can make the simulation stutter. Try 15-30
+                            steps/sec, and if it's still slow, reduce the board size or switch your
+                            device to performance/high-power mode.">?</span>
+          </span>
+          <input type="range" id="spd" min="1" max="60" step="1" value="20">
+          <b id="v-spd">20/s</b>
+        </label>
+        <label class="mini" title="">
+          <span>Q-map
+            <span class="info-badge" tabindex="0" role="note"
+                  data-tip="Overlays what CARL expects to gain from one kind of action at every
+                            cell: adding mass there, removing it, or doing nothing. Normalized per
+                            frame, so the colours compare cells within the current step.">?</span>
+          </span>
+          <select id="qchan">
+            <option value="off" selected>off</option>
+            <option value="add">add</option>
+            <option value="remove">remove</option>
+            <option value="noop">no-op</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <!-- RIGHT: controls -->
+    <div class="controls">
+      <!-- Two explicit columns rather than a 2x2 grid: grid rows stretch every panel to the
+           tallest in the row, which left "Soliton recipe" (one select) padded out to match
+           "Goal". Stacked in a column each panel keeps its own height and the dead space goes. -->
+      <div class="col">
+        <div class="panel">
+          <h3>
+            <span>Soliton recipe
+              <span class="info-badge" tabindex="0" role="note"
+                    data-tip="Hand-selected combinations of hyperparameters demonstrating CARL in
+                              action. Each episode has a high chance of producing a unique soliton --
+                              a local, self-organizing pattern.">?</span>
+            </span>
+          </h3>
+          <select id="recipe" title=""></select>
+        </div>
+
+        <div class="panel">
+          <h3>
+            <span>Update rule
+              <span class="info-badge" tabindex="0" role="note"
+                    data-tip="Lenia's update rule, shown below, governs the environment dynamics.
+                              β and R shape the kernel K; μ and σ shape the growth function φ.">?</span>
+            </span>
+          </h3>
+          <div class="rule-eq" role="math" aria-label="X sub t plus dt equals, open bracket, X sub t plus dt times phi of K convolved with X sub t, close bracket, clamped between 0 and 1">
+            <math display="block" xmlns="http://www.w3.org/1998/Math/MathML">
+              <msub><mi>X</mi><mrow><mi>t</mi><mo>+</mo><mi>dt</mi></mrow></msub>
+              <mo>=</mo>
+              <msubsup>
+                <mrow>
+                  <mo>[</mo>
+                  <msub><mi>X</mi><mi>t</mi></msub>
+                  <mo>+</mo>
+                  <mi>dt</mi><mo>&#x2062;</mo><mi>&#x3C6;</mi>
+                  <mo>(</mo><mi>K</mi><mo>&#x2217;</mo><msub><mi>X</mi><mi>t</mi></msub><mo>)</mo>
+                  <mo>]</mo>
+                </mrow>
+                <mn>0</mn>
+                <mn>1</mn>
+              </msubsup>
+            </math>
+          </div>
+          <label class="field" style="margin-bottom:0" title="">
+            <div class="row">
+              <span class="name">presets
+                <span class="info-badge" tabindex="0" role="note"
+                      data-tip="The set of update rules used during training.">?</span>
+              </span>
+            </div>
+            <select id="preset"></select>
+          </label>
+          <hr class="rule-sep">
+          <label class="field" style="margin-bottom:8px" title="">
+            <div class="row">
+              <span class="name">β rings</span>
+            </div>
+            <input type="text" id="betas" value="1,0.75,0.25,0.75">
+          </label>
+          <div class="two">
+            <label class="field" style="margin-bottom:8px" title="">
+              <div class="row"><span class="name">μ</span><span class="val" id="v-m">0.300</span></div>
+              <input type="range" id="m" min="0.05" max="0.6" step="0.005" value="0.3">
+            </label>
+            <label class="field" style="margin-bottom:8px" title="">
+              <div class="row"><span class="name">σ</span><span class="val" id="v-s">0.037</span></div>
+              <input type="range" id="s" min="0.003" max="0.12" step="0.001" value="0.037">
+            </label>
+          </div>
+          <label class="field" style="margin-bottom:7px" title="">
+            <div class="row"><span class="name">kernel radius R</span><span class="val" id="v-R">10</span></div>
+            <input type="range" id="R" min="6" max="20" step="1" value="10">
+          </label>
+          <label class="chk" title="">
+            <input type="checkbox" id="scaleR" checked>
+            <span>scale R<sub>a</sub> &amp; τ with R</span>
+            <span class="info-badge" tabindex="0" role="note"
+                  data-tip="Scales the target mass τ and the action radius R_a accordingly when the
+                            kernel radius R changes.">?</span>
+          </label>
+          <div class="rule-viz">
+            <figure title="The convolution kernel, one block per cell: how much each neighbouring cell counts, brightest where it weighs most. Its rings come from β; the number of cells across it is set by R.">
+              <canvas id="viz-kernel"></canvas>
+              <figcaption>kernel <span class="sym">K</span></figcaption>
+            </figure>
+            <figure class="grow" title="The growth function φ: for a neighbourhood reading u (left 0, right 1), how fast a cell gains (green) or loses (red) mass. Centred on μ, widened by σ.">
+              <canvas id="viz-growth"></canvas>
+              <figcaption>growth <span class="sym">φ(u)</span></figcaption>
+            </figure>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="panel">
+          <h3>
+            <span>Goal
+              <span class="info-badge" tabindex="0" role="note"
+                    data-tip="These values condition CARL's behavior.">?</span>
+            </span>
+          </h3>
+            <label class="field" style="margin-bottom:10px" title="">
+              <div class="row">
+                <span class="name">target mass τ
+                  <span class="info-badge" tabindex="0" role="note"
+                        data-tip="The grid mass that CARL will try to maintain.">?</span>
+                </span>
+                <span class="val" id="v-tgt">100</span>
+              </div>
+              <input type="range" id="tgt" min="0" max="1000" step="10" value="100">
+            </label>
+            <label class="field" style="margin-bottom:0" title="">
+              <div class="row">
+                <span class="name">action cost c
+                  <span class="info-badge" tabindex="0" role="note"
+                        data-tip="Action cost is the penalty CARL is told to expect for every
+                                  intervention it makes on the grid. A higher cost makes it act more
+                                  sparingly and hold the target less tightly; a lower cost lets it
+                                  intervene more freely to correct the mass. CARL was trained on costs
+                                  from 0 to 0.2.">?</span>
+                </span>
+                <span class="val" id="v-cost">0.10</span>
+              </div>
+              <input type="range" id="cost" min="0" max="0.4" step="0.01" value="0.1">
+            </label>
+        </div>
+
+        <div class="panel">
+          <h3>
+            <span>Action &amp; world
+              <span class="info-badge" tabindex="0" role="note"
+                    data-tip="These values change the environment dynamics: the size of the grid, and
+                              the agent's actions.">?</span>
+            </span>
+          </h3>
+          <label class="field" style="margin-bottom:8px" title="">
+            <div class="row">
+              <span class="name">action radius R<sub>a</sub>
+                <span class="info-badge" tabindex="0" role="note"
+                      data-tip="The surface size of CARL's actions.">?</span>
+              </span>
+              <span class="val" id="v-ra">5</span>
+            </div>
+            <input type="range" id="ra" min="1" max="20" step="1" value="5">
+          </label>
+          <label class="field" style="margin-bottom:8px" title="">
+            <div class="row">
+              <span class="name">action magnitude M<sub>a</sub>
+                <span class="info-badge" tabindex="0" role="note"
+                      data-tip="Determines how much mass each action adds or removes per cell.">?</span>
+              </span>
+              <span class="val" id="v-ma">0.30</span>
+            </div>
+            <input type="range" id="ma" min="0.05" max="0.6" step="0.05" value="0.3">
+          </label>
+          <label class="field" style="margin-bottom:0" title="">
+            <div class="row"><span class="name">board size</span></div>
+            <select id="board">
+              <option value="64" selected>64²</option>
+              <option value="96">96²</option>
+              <option value="128">128²</option>
+              <option value="192">192²</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ====================================================================================
+//  CONFIG — locked to the canonical mass run (models/meta_mass.json)
+// ====================================================================================
+const CFG = {
+  H: 64, W: 64,            // board (trained size; the net is fully-conv so others work too)
+  R: 10,                   // kernel radius
+  dt: 0.1,
+  K: 4,                    // frame stack
+  actionValue: [0.3, -0.3, 0.0],   // add / remove / no-op  (output channel order)
+  actionRadiusTrained: 5,
+  actionMagTrained: 0.3,
+  maxSteps: 150,           // episode length used for the time signal
+  actionFadeSeconds: 0.85, // how long an intervention marker takes to fade out, in sim time
+  noTime: false,
+  targetMin: 0, targetMax: 200,
+  costMin: 0, costMax: 0.2,
+  modelUrl: 'models/agent_mass.onnx',
+  presetsUrl: 'models/presets_mass.json',
+};
+// Inline fallback presets (validated to self-sustain). Full list fetched from presetsUrl if available.
+const FALLBACK_PRESETS = [
+  {name:"β=[1,0.75,0.25,0.75] · μ0.300 · σ0.037",mu:0.3,sigma:0.037,betas:[1,0.75,0.25,0.75]},
+  {name:"β=[0.5,0.75,1] · μ0.225 · σ0.025",mu:0.225,sigma:0.025,betas:[0.5,0.75,1]},
+  {name:"β=[1,0.5] · μ0.240 · σ0.024",mu:0.24,sigma:0.024,betas:[1,0.5]},
+  {name:"β=[1,0.75,0.25,0.75] · μ0.355 · σ0.050",mu:0.355,sigma:0.05,betas:[1,0.75,0.25,0.75]},
+];
+const DEFAULT_PRESET = FALLBACK_PRESETS[0];
+
+// Known-good (rule, target, cost) recipes — each validated on the exported model to make a
+// soliton that self-sustains for 120+ agent-free steps. All use the trained kernel R=10, Ra=5, Ma=0.3.
+// Pulled straight from the paper's fresh_parody evaluation (selforg / novel-rules / unseen-radii).
+// Each carries the exact rule (μ,σ,β) the model was conditioned on, plus the eval's kernel R,
+// action radius Rₐ≈R/2, target τ, cost c and a board ≈ round(64·R/10) ("properly sized").
+const RECIPES = [
+  // ── trained scale: R=10, 64² board, Rₐ=5 (selforg + novel-rule rollouts) ──
+  {name:"Jumper",         mu:0.225,sigma:0.025, betas:[0.5,0.75,1.0], R:10, Ra:5, target:100, cost:0.1, board:64},
+  {name:"Two Jumpers",    mu:0.225,sigma:0.025, betas:[0.5,0.75,1.0], R:10, Ra:5, target:200, cost:0.1, board:64},
+  {name:"Glider",         mu:0.26, sigma:0.042, betas:[0.5,0.75,1.0], R:10, Ra:5, target:130, cost:0.15, board:64},
+  {name:"Star",           mu:0.195,sigma:0.027, betas:[0.5,1.0],      R:17, Ra:7, target:260, cost:0.05, board:96},  
+  {name:"Rotator",        mu:0.24, sigma:0.038, betas:[1.0],          R:15, Ra:7, target:250, cost:0.05, board:96},  
+  {name:"Long",           mu:0.33, sigma:0.054, betas:[1.0],          R:10, Ra:4, target:250, cost:0.08, board:96},
+  {name:"Two Blobs",      mu:0.26, sigma:0.036, betas:[1.0,1.0,1.0],  R:10, Ra:5, target:250, cost:0.1, board:64},
+  {name:"Eye",            mu:0.30, sigma:0.038, betas:[1.0,1.0,1.0],  R:10, Ra:5, target:300, cost:0.1, board:96},
+  {name:"Blob 2",         mu:0.23,sigma:0.026, betas:[0.5,0.1,0.4],  R:18, Ra:7, target:390, cost:0.26, board:96},
+  {name:"The Line",       mu:0.49,sigma:0.072, betas:[0.5,1.0],     R:12, Ra:9, Ma:0.6, target:1000, cost:0.40, board:64},
+];
+
+// ====================================================================================
+//  Colormap (viridis)
+// ====================================================================================
+function buildLUT(stops){
+  const lut=new Uint8Array(256*3);
+  for(let i=0;i<256;i++){
+    const t=i/255*(stops.length-1), k=Math.min(stops.length-2,Math.floor(t)), f=t-k;
+    for(let c=0;c<3;c++) lut[i*3+c]=stops[k][c]+(stops[k+1][c]-stops[k][c])*f;
+  }
+  return lut;
+}
+const VIRIDIS=buildLUT([[0,0,0],[255,255,255]]);
+const COOLWARM=buildLUT([[59,76,192],[120,140,225],[192,196,232],[230,210,200],[233,150,130],[210,80,70],[180,4,38]]);
+
+// ====================================================================================
+//  State
+// ====================================================================================
+let H=CFG.H, W=CFG.W, N=H*W; const K=CFG.K;
+let state=new Float32Array(N), conv=new Float32Array(N);
+let stack=[];                       // K Float32Arrays, oldest..newest
+let kdx,kdy,kw,knn, modW,modH;      // kernel + toroidal lookup
+let mu=DEFAULT_PRESET.mu, sig=DEFAULT_PRESET.sigma, betas=DEFAULT_PRESET.betas.slice();
+let Ra=CFG.actionRadiusTrained, Ma=CFG.actionMagTrained;
+let R=CFG.R, scaleWithR=true;       // kernel radius (default 10); optionally co-scales Ra & target
+let target=100, cost=0.1, sps=20;     // target steps per second (wall-clock)
+let stepAcc=0, lastT=0, measSps=0;    // accumulator + measured rate for the steps/sec scheduler
+let rateSteps=0, rateTime=0;          // 0.5s window for the measured-rate readout
+const MAX_STEPS_PER_FRAME=6;          // cap so a burst can't freeze the page
+let running=false, steps=0, actions=0, mode='agent';
+let qChan='off';                    // Q-map overlay channel: off · add · remove · noop
+const Q_CHANNEL_IDX={add:0,remove:1,noop:2};   // matches CFG.actionValue's [add,remove,no-op] order
+let clockHold=false, clockVal=0;   // episode clock: auto-loops, or frozen at clockVal
+let loopMode=false;                // default: act ONE episode (CFG.maxSteps) then mute (free-run); true: act forever
+let session=null, busy=false, lastMs=0, lastQ=null, lastAction=null;
+// Interventions kept around for a moment after they land (see drawActionTrail); each entry keeps
+// the action radius in force when it was placed, since Rₐ moves with the preset/kernel.
+let actionTrail=[];
+function pushTrail(r,c,sign){ if(sign) actionTrail.push({r,c,sign,ra:Ra,step:steps}); }
+
+const cv=document.getElementById('lenia'), ctx=cv.getContext('2d');
+const ov=document.getElementById('overlay'), octx=ov.getContext('2d');
+const qcv=document.createElement('canvas'); qcv.width=W; qcv.height=H;
+const qctx=qcv.getContext('2d');
+let img;
+const $=id=>document.getElementById(id);
+
+// ====================================================================================
+//  Kernel (matches _compute_chan_kernel / _quad_kernel_core)
+// ====================================================================================
+function quad4(r){const q=4*r*(1-r);return q*q*q*q;}
+// ====================================================================================
+//  Update-rule preview -- the kernel and the growth curve, redrawn whenever μ, σ, β or R
+//  change. Read-only: it restates the sliders above it, using the same math the sim runs.
+// ====================================================================================
+function fitViz(c){
+  const r=c.getBoundingClientRect(), dpr=window.devicePixelRatio||1;
+  const w=Math.max(1,Math.round((r.width||54)*dpr)), h=Math.max(1,Math.round((r.height||54)*dpr));
+  if(c.width!==w||c.height!==h){ c.width=w; c.height=h; }
+  return {w,h,dpr};
+}
+// The kernel exactly as the sim stencils it: one block per cell of the (2R+1)² neighbourhood,
+// carrying that cell's own weight, never interpolated. Blocks are a fixed size, so R shows up as
+// how many of them there are -- the disc grows and shrinks with the distance a cell actually
+// sees, at a constant scale. Brightness is relative to the profile's own peak, so the ring
+// pattern reads the same whatever absolute weights β carries.
+function drawKernelViz(){
+  const c=$('viz-kernel'); if(!c) return;
+  const {w,h}=fitViz(c), g=c.getContext('2d');
+  const RMAX=+($('R').max)||20, KS=2*R+1, b=betas.length;
+  const cell=Math.min(w,h)/(2*RMAX+1);        // one cell's size in device px, independent of R
+  const vals=new Float32Array(KS*KS); let mx=0;
+  for(let iy=0;iy<KS;iy++){
+    const yy=-1+2*iy/(KS-1);
+    for(let ix=0;ix<KS;ix++){
+      const xx=-1+2*ix/(KS-1);
+      let r=Math.sqrt(xx*xx+yy*yy); if(r>1) r=0;                 // outside the disc: weight 0
+      const v = b>1 ? betas[Math.min(b-1,Math.floor(b*r))]*quad4((b*r)%1) : betas[0]*quad4(r);
+      vals[iy*KS+ix]=v; if(v>mx) mx=v;
+    }
+  }
+  if(mx<=0) mx=1;
+  const tmp=document.createElement('canvas'); tmp.width=KS; tmp.height=KS;
+  const tctx=tmp.getContext('2d'), im=tctx.createImageData(KS,KS);
+  for(let i=0;i<KS*KS;i++){
+    const t=Math.max(0,Math.min(255,(vals[i]/mx*255)|0)), o=i*4, l=t*3;
+    im.data[o]=VIRIDIS[l]; im.data[o+1]=VIRIDIS[l+1]; im.data[o+2]=VIRIDIS[l+2];
+    im.data[o+3]=vals[i]>0?255:0;                                // the box's own ground shows through
+  }
+  tctx.putImageData(im,0,0);
+  const side=KS*cell;
+  g.clearRect(0,0,w,h);
+  g.imageSmoothingEnabled=false;                                 // one cell = one hard-edged block
+  g.drawImage(tmp, (w-side)/2, (h-side)/2, side, side);
+}
+// φ(u) = 2·exp(-(u-μ)²/2σ²) - 1 over the whole domain of u: the kernel is normalized to sum 1
+// and the state is in [0,1], so a neighbourhood reading is always in [0,1] too.
+function drawGrowthViz(){
+  const c=$('viz-growth'); if(!c) return;
+  const {w,h,dpr}=fitViz(c), g=c.getContext('2d');
+  g.clearRect(0,0,w,h);
+  // This one sits on --raised, which is paper in light mode and near-black in dark, so the
+  // curve and baseline take their colour from the theme's ink rather than being fixed white.
+  const cs=getComputedStyle(document.documentElement);
+  const ink=cs.getPropertyValue('--ink').trim()||'#241a2c';
+  const faint=cs.getPropertyValue('--line2').trim()||'#d9cee0';
+  const accent=cs.getPropertyValue('--accent').trim()||'#c96a34';
+  const pad=3*dpr, x=u=>pad+u*(w-2*pad), y=v=>pad+(1-(v+1)/2)*(h-2*pad);
+  const G=u=>{ const d=mu-u; return 2*Math.exp(-(d*d)/(2*sig*sig))-1; };
+  const n=Math.max(64,Math.round(w));
+  const pts=[]; for(let i=0;i<=n;i++){ const u=i/n; pts.push([x(u),y(G(u))]); }
+
+  // area between the curve and G=0, green where a cell grows, red where it decays
+  const y0=y(0);
+  for(const [above,fill] of [[true,'rgba(83,185,121,.38)'],[false,'rgba(222,73,104,.30)']]){
+    g.beginPath(); g.moveTo(pts[0][0],y0);
+    for(const [px,py] of pts) g.lineTo(px, above ? Math.min(py,y0) : Math.max(py,y0));
+    g.lineTo(pts[pts.length-1][0],y0); g.closePath();
+    g.fillStyle=fill; g.fill();
+  }
+  // G=0 baseline
+  g.setLineDash([2*dpr,2*dpr]); g.strokeStyle=faint; g.lineWidth=dpr;
+  g.beginPath(); g.moveTo(pad,y0); g.lineTo(w-pad,y0); g.stroke(); g.setLineDash([]);
+  // μ marker
+  g.strokeStyle=accent; g.lineWidth=dpr;
+  g.beginPath(); g.moveTo(x(mu),pad); g.lineTo(x(mu),h-pad); g.stroke();
+  // the curve itself
+  g.strokeStyle=ink; g.lineWidth=1.5*dpr; g.lineJoin='round';
+  g.beginPath(); pts.forEach(([px,py],i)=> i?g.lineTo(px,py):g.moveTo(px,py)); g.stroke();
+}
+function drawRuleViz(){ drawKernelViz(); drawGrowthViz(); }
+window.addEventListener('resize', drawRuleViz);
+
+function buildKernel(){
+  const KS=2*R+1, grid=[]; let sum=0;
+  for(let iy=0;iy<KS;iy++){
+    grid.push([]);
+    const yy=-1+2*iy/(KS-1);
+    for(let ix=0;ix<KS;ix++){
+      const xx=-1+2*ix/(KS-1);
+      let r=Math.sqrt(xx*xx+yy*yy); if(r>1) r=0;
+      let v; const b=betas.length;
+      if(b>1){ const Br=b*r; let idx=Math.floor(Br); if(idx>b-1) idx=b-1; v=betas[idx]*quad4(Br%1); }
+      else v=betas[0]*quad4(r);
+      grid[iy].push(v); sum+=v;
+    }
+  }
+  if(sum<1e-6) sum=1;
+  const dxA=[],dyA=[],wA=[];
+  for(let iy=0;iy<KS;iy++)for(let ix=0;ix<KS;ix++){
+    const w=grid[iy][ix]/sum;
+    if(w>1e-7){ dyA.push(iy-R); dxA.push(ix-R); wA.push(w); }
+  }
+  kdx=Int32Array.from(dxA); kdy=Int32Array.from(dyA); kw=Float32Array.from(wA); knn=wA.length;
+  drawRuleViz();
+}
+function allocGrid(){
+  const padW=W+40, padH=H+40;
+  modW=new Int32Array(W+2*padW); for(let i=0;i<modW.length;i++) modW[i]=((i-padW)%W+W)%W;
+  modH=new Int32Array(H+2*padH); for(let i=0;i<modH.length;i++) modH[i]=((i-padH)%H+H)%H;
+  modW.pad=padW; modH.pad=padH;
+  cv.width=W; cv.height=H; img=ctx.createImageData(W,H);
+  qcv.width=W; qcv.height=H;
+}
+function setBoard(size){
+  H=W=size; N=H*W;
+  state=new Float32Array(N); conv=new Float32Array(N);
+  allocGrid(); buildKernel(); seed20();   // seed20 refills the frame stack + renders
+}
+
+// one Lenia step (circular convolution, shift-accumulate) — identical to lenia.py dynamics
+function stepSim(){
+  conv.fill(0);
+  const pw=modW.pad, ph=modH.pad;
+  for(let o=0;o<knn;o++){
+    const dx=kdx[o], dy=kdy[o], w=kw[o];
+    for(let y=0;y<H;y++){
+      const sy=modH[y+dy+ph], rowS=sy*W, rowO=y*W, base=pw+dx;
+      for(let x=0;x<W;x++) conv[rowO+x]+=w*state[rowS+modW[x+base]];
+    }
+  }
+  const inv=1/(2*sig*sig);
+  for(let i=0;i<N;i++){
+    const d=mu-conv[i];
+    const v=state[i]+(2*Math.exp(-(d*d)*inv)-1)*CFG.dt;
+    state[i]=v<0?0:(v>1?1:v);
+  }
+  steps++;
+}
+
+// action: add/remove Ma·sign in disk of radius Ra (matches env._apply_action)
+function applyAction(gx,gy,delta){
+  const r2=Ra*Ra;
+  for(let dy=-Ra;dy<=Ra;dy++)for(let dx=-Ra;dx<=Ra;dx++){
+    if(dx*dx+dy*dy>r2) continue;
+    const y=((gy+dy)%H+H)%H, x=((gx+dx)%W+W)%W, i=y*W+x;
+    const v=state[i]+delta; state[i]=v<0?0:(v>1?1:v);
+  }
+}
+
+// frame stack -------------------------------------------------------------------------
+function pushStack(){ stack.push(Float32Array.from(state)); if(stack.length>K) stack.shift(); }
+function fillStack(){ stack=[]; for(let i=0;i<K;i++) stack.push(Float32Array.from(state)); }
+
+// ====================================================================================
+//  Context vector (12-D) — exact layout from meta_mass.json
+//   [time, target_norm, cost_norm, dt, R, mu, sig, b0,b1,b2,b3, n_beta]
+// ====================================================================================
+// The agent acts for one CFG.maxSteps-long episode, then its actions mute and the CA
+// evolves freely (paper's post-rollout protocol) — unless loop mode keeps it acting.
+// A held time step pins what CARL is told the time is, so from its point of view the episode
+// never reaches its end -- telling it "t = 0.5" and muting it at step 150 anyway would be
+// incoherent, and made freezing look broken. A held clock therefore keeps it acting, as Loop does.
+function agentActive(){ return loopMode || clockHold || steps < CFG.maxSteps; }
+function clockTime(){            // normalized episode time fed to the net (context dim 0)
+  if(CFG.noTime) return 0;
+  if(clockHold) return clockVal;
+  if(loopMode) return (steps%CFG.maxSteps)/CFG.maxSteps;   // loop 0→1 forever
+  return Math.min(steps,CFG.maxSteps)/CFG.maxSteps;        // episode: climbs 0→1, then holds at 1
+}
+function buildContext(){
+  const c=new Float32Array(12);
+  c[0]=clockTime();
+  c[1]=(target-CFG.targetMin)/(CFG.targetMax-CFG.targetMin);
+  c[2]=(cost-CFG.costMin)/(CFG.costMax-CFG.costMin);
+  c[3]=CFG.dt; c[4]=R; c[5]=mu; c[6]=sig;
+  for(let i=0;i<4;i++) c[7+i]=i<betas.length?betas[i]:0;
+  c[11]=betas.length;
+  return c;
+}
+function buildStateInput(){
+  const data=new Float32Array(K*N);
+  for(let k=0;k<K;k++) data.set(stack[k], k*N);
+  return data;
+}
+
+// ====================================================================================
+//  Agent step (greedy argmax over the per-cell, per-action Q-map)
+// ====================================================================================
+async function agentStep(){
+  if(!session) return;
+  const t0=performance.now();
+  const feeds={
+    state:   new ort.Tensor('float32', buildStateInput(), [1,K,H,W]),
+    context: new ort.Tensor('float32', buildContext(),    [1,12]),
+  };
+  const out=await session.run(feeds);
+  const q=out.q.data;                  // length 3*N, channel-major: [type][y][x]
+  lastMs=performance.now()-t0;
+  // argmax over all 3*N
+  let best=0, bv=q[0];
+  for(let i=1;i<q.length;i++) if(q[i]>bv){bv=q[i]; best=i;}
+  lastQ=q;
+  const at=Math.floor(best/N), pos=best%N, r=Math.floor(pos/W), c=pos%W;
+  const sign=Math.sign(CFG.actionValue[at]);            // +1 add, -1 remove, 0 no-op
+  if(sign!==0){ applyAction(c,r,sign*Ma); actions++; }
+  lastAction={r,c,at,sign};
+  pushTrail(r,c,sign);
+  stepSim();
+  pushStack();
+}
+function manualStepNoOp(){ stepSim(); pushStack(); userActedThisStep=false; }   // "you act" tick: evolve + free the next action
+function freeRunStep(){ lastAction=null; lastQ=null; stepSim(); pushStack(); }  // agent muted: CA evolves with no intervention
+
+// ====================================================================================
+//  Render
+// ====================================================================================
+// The green/red discs CARL stamps on the board each step, drawn the way the maze demo draws
+// them: each one lingers and fades out over CFG.actionFadeSeconds of *simulation* time instead
+// of blinking for a single frame, so the pattern of interventions stays readable at 20+ steps/
+// sec and looks the same at any speed. A filled disc shows the area actually affected (Rₐ), a
+// ring outlines it, and the freshest one gets a halo.
+function drawActionTrail(sc){
+  if(!actionTrail.length) return;
+  const fadeSteps=Math.max(4, CFG.actionFadeSeconds*sps);
+  const newest=actionTrail[actionTrail.length-1].step;
+  while(actionTrail.length && steps-actionTrail[0].step>fadeSteps) actionTrail.shift();
+  for(const a of actionTrail){
+    const age=(steps-a.step)/fadeSteps;
+    if(age>1) continue;
+    const k=1-age, fade=k*k;                 // ease-out: bright for a beat, then a long tail
+    const px=(a.c+0.5)*sc, py=(a.r+0.5)*sc, rad=a.ra*sc;
+    const rgb=a.sign>0?'83,185,121':'222,73,104';
+    octx.beginPath(); octx.arc(px,py,rad,0,7);
+    octx.fillStyle=`rgba(${rgb},${(0.30*fade).toFixed(3)})`; octx.fill();
+    octx.strokeStyle=`rgba(${rgb},${(0.85*fade+0.06*k).toFixed(3)})`;
+    octx.lineWidth=(a.step===newest?3:2)*Math.max(1,sc*0.5);
+    octx.stroke();
+    if(a.step===newest){                     // halo so the current intervention stands out
+      octx.beginPath(); octx.arc(px,py,rad+3,0,7);
+      octx.strokeStyle=`rgba(${rgb},.35)`; octx.lineWidth=1.5; octx.stroke();
+    }
+  }
+}
+function render(){
+  let mass=0;
+  for(let i=0;i<N;i++){
+    const v=state[i]; mass+=v;
+    const c=v<0?0:(v>1?255:(v*255)|0), o=i*4, l=c*3;
+    img.data[o]=VIRIDIS[l];img.data[o+1]=VIRIDIS[l+1];img.data[o+2]=VIRIDIS[l+2];img.data[o+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+
+  // overlay: Q heatmap + agent action marker
+  const r=cv.getBoundingClientRect();
+  if(ov.width!==Math.round(r.width)){ ov.width=Math.round(r.width)||W; ov.height=Math.round(r.height)||H; }
+  octx.clearRect(0,0,ov.width,ov.height);
+  const sc=ov.width/W;
+
+  if(qChan!=='off' && lastQ){
+    // per-cell Q for the selected action type alone (add/remove/noop), normalized to that
+    // channel's own range across the board.
+    const vals=new Float32Array(N);
+    const base=Q_CHANNEL_IDX[qChan]*N;
+    for(let i=0;i<N;i++) vals[i]=lastQ[base+i];
+    let mn=Infinity,mx=-Infinity;
+    for(let i=0;i<N;i++){ const v=vals[i]; if(v<mn)mn=v; if(v>mx)mx=v; }
+    const qimg=qctx.createImageData(W,H), span=(mx-mn)||1;
+    for(let i=0;i<N;i++){ const t=((vals[i]-mn)/span*255)|0, o=i*4, l=t*3;
+      qimg.data[o]=COOLWARM[l];qimg.data[o+1]=COOLWARM[l+1];qimg.data[o+2]=COOLWARM[l+2];qimg.data[o+3]=110; }
+    qctx.putImageData(qimg,0,0);
+    octx.imageSmoothingEnabled=false;
+    octx.drawImage(qcv,0,0,ov.width,ov.height);
+  }
+  drawActionTrail(sc);
+
+  // readouts
+  if(mode==='agent') $('badge').textContent = agentActive() ? 'CARL is acting' : 'CARL paused';
+  $('r-mass').textContent=mass.toFixed(1);
+  $('r-target').textContent=target;
+  $('r-step').textContent=steps;
+  $('r-act').textContent=actions;
+  $('r-ms').textContent=lastMs?lastMs.toFixed(1)+'ms':'–';
+  $('r-rate').textContent=measSps?measSps.toFixed(0)+'/s':'–';
+  const tc=clockTime();
+  $('r-clock').textContent=tc.toFixed(2);
+  if(!clockHold) $('clock').value=tc;   // slider visibly tracks the looping clock
+  const barMax=Math.max(2*target,mass*1.05,CFG.targetMax);   // adaptive (target ↔ 200 trained max)
+  $('r-fill').style.width=Math.min(100,mass/barMax*100)+'%';
+  $('r-tick').style.left=Math.min(100,target/barMax*100)+'%';
+  // The band is the same tolerance the readout has always used to call the run on target, drawn
+  // instead of merely recolouring a number: how close is close enough is otherwise invisible.
+  const tol=target*0.12+8, close=Math.abs(mass-target)<tol;
+  const bl=Math.max(0,(target-tol)/barMax*100), br=Math.min(100,(target+tol)/barMax*100);
+  $('r-band').style.left=bl+'%'; $('r-band').style.width=Math.max(0,br-bl)+'%';
+  $('r-bar').classList.toggle('ok',close);
+  $('r-mass').className=close?'ok':'';
+  const st=$('r-state');
+  st.textContent=close?'on target':(mass<target?'below target':'above target');
+  st.className='mm-state'+(close?' ok':'');
+}
+
+// ====================================================================================
+//  Main loop
+// ====================================================================================
+async function loop(){
+  if(!running){ return; }
+  if(!busy){
+    busy=true;
+    const now=performance.now();
+    if(!lastT) lastT=now;
+    let elapsed=(now-lastT)/1000;
+    if(elapsed>0.25) elapsed=0.25;        // clamp big gaps (background tab)
+    lastT=now;
+    stepAcc+=elapsed*sps;
+    let want=Math.floor(stepAcc);
+    stepAcc-=want;                         // keep fractional remainder, drop any backlog
+    const n=Math.min(want, MAX_STEPS_PER_FRAME);
+    try{
+      for(let k=0;k<n;k++){
+        if(mode==='agent'){ if(agentActive()) await agentStep(); else freeRunStep(); }
+        else manualStepNoOp();
+      }
+    } finally { busy=false; }
+    rateSteps+=n; rateTime+=elapsed;                       // true average over a 0.5s window
+    if(rateTime>=0.5){ measSps=rateSteps/rateTime; rateSteps=0; rateTime=0; }
+    if(n>0) render();
+  }
+  requestAnimationFrame(loop);
+}
+function setRunning(v){
+  running=v; userActedThisStep=false;
+  $('play').textContent=running?'Pause':'Play';
+  $('play').classList.toggle('on',running);
+  if(running){ lastT=0; stepAcc=0; rateSteps=0; rateTime=0; loop(); }   // reset scheduler so resume doesn't burst
+}
+
+// ====================================================================================
+//  Seeding / interaction
+// ====================================================================================
+// Procedural initial state — matches the env reset (lenia_env_time_v3.reset):
+// apply 20 random actions to an EMPTY grid, with the action TYPE sampled uniformly over
+// all types (add / remove / no-op) and the location uniform, WITHOUT evolving the CA between
+// them. On an empty grid remove/no-op are inert, so only ~1/3 of the 20 actually add mass.
+function seed20(){
+  state.fill(0);
+  const nT=CFG.actionValue.length;                  // 3: [+0.3, -0.3, 0.0]
+  for(let k=0;k<20;k++){
+    const at=(Math.random()*nT)|0;                  // uniform action type
+    const sign=Math.sign(CFG.actionValue[at]);      // +1 add, -1 remove, 0 no-op
+    if(sign!==0) applyAction((Math.random()*W)|0,(Math.random()*H)|0,sign*Ma);
+  }
+  steps=0; actions=0; lastAction=null; lastQ=null; actionTrail=[]; fillStack(); render();
+}
+function clearGrid(){ state.fill(0); steps=0; actions=0; lastAction=null; lastQ=null; actionTrail=[]; fillStack(); render(); }
+
+// Manual interaction ("you act" mode): at most ONE action per timestep, mirroring the env
+// (each step = one action, then one CA evolution). A discrete click is one action — no drag.
+//   • paused  → the click IS the timestep: apply the action, then evolve one step.
+//   • running → inject one action into the current auto-evolving step; extra clicks are
+//               blocked by `userActedThisStep` until the next evolve clears it.
+let userActedThisStep=false;
+function evToGrid(e){
+  const r=cv.getBoundingClientRect();
+  const px=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+  const py=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
+  return [Math.floor(px/r.width*W), Math.floor(py/r.height*H)];
+}
+function userAct(e,delta){
+  if(mode!=='you' || userActedThisStep) return;     // one action per timestep
+  const [gx,gy]=evToGrid(e);
+  applyAction(gx,gy,delta*Ma); actions++;
+  lastAction={r:gy,c:gx,sign:Math.sign(delta)};       // marker feedback at the click
+  pushTrail(gy,gx,Math.sign(delta));
+  userActedThisStep=true;
+  if(!running){ stepSim(); pushStack(); userActedThisStep=false; }  // paused: click = a full timestep
+  render();
+}
+cv.addEventListener('mousedown',e=>{ if(mode!=='you')return; e.preventDefault(); userAct(e, e.button===2?-1:1); });
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('touchstart',e=>{ if(mode!=='you')return; e.preventDefault(); userAct(e, 1); },{passive:false});
+
+// ====================================================================================
+//  Controls
+// ====================================================================================
+function setMode(m){
+  mode=m; userActedThisStep=false;
+  const agent=m==='agent';
+  $('who-agent').classList.toggle('on',agent);
+  $('who-you').classList.toggle('on',!agent);
+  cv.classList.toggle('manual',!agent);
+  $('badge').textContent=agent?'CARL is acting':'You are acting';
+  $('badge').classList.toggle('you',!agent);
+  $('modetip').innerHTML=agent
+    ? 'CARL acts for 150 steps, then pauses so you can watch the pattern evolve. <b>Loop</b> keeps it acting.'
+    : '<b>You are acting now.</b> CARL is idle; on the board, <b>left-click adds mass</b>, <b>right-click removes it</b> (one action per step) and <b>space advances one step</b> (the Step button does the same). While paused, a click also steps.';
+}
+function loadPreset(p){
+  mu=p.mu; sig=p.sigma; betas=p.betas.slice();
+  $('betas').value=betas.join(','); $('m').value=mu; $('v-m').textContent=mu.toFixed(3);
+  $('s').value=sig; $('v-s').textContent=sig.toFixed(3);
+  buildKernel();
+}
+function applyRecipe(r){
+  setMode('agent');
+  // kernel radius + action radius (set R first so loadPreset's buildKernel uses it)
+  R=r.R;   $('R').value=R;   $('v-R').textContent=R;
+  Ra=r.Ra; $('ra').value=Ra; $('v-ra').textContent=Ra;
+  Ma=r.Ma??0.3; $('ma').value=Ma; $('v-ma').textContent=Ma.toFixed(2);
+  // rule (μ, σ, β) + kernel rebuild
+  loadPreset({mu:r.mu, sigma:r.sigma, betas:r.betas});
+  // goal
+  setTarget(r.target);
+  setCost(r.cost);
+  // clock back to auto
+  clockHold=false; $('clockhold').checked=false;
+  // properly-sized board (reseeds + rebuilds the kernel for the new R)
+  $('board').value=String(r.board);
+  setRunning(false); setBoard(r.board); setRunning(true);
+}
+// Both conditioning values have sliders that deliberately run past the range the model was
+// trained on (target to 1000 vs CFG.targetMax, cost to 0.4 vs CFG.costMax): clamping would make
+// the top of each slider inert, and rescaling would silently change what existing values mean.
+// So the value is passed through honestly and the readout marks it as extrapolation, exactly as
+// the maze demo does with its action cost.
+function markOOD(el, over, max){
+  el.classList.toggle('ood', over);
+  el.title = over ? `Beyond the 0-${max} range CARL was trained on -- it is extrapolating here.` : '';
+}
+function setTarget(v){
+  target=v;
+  $('tgt').value=target;
+  $('v-tgt').textContent=target; $('r-target').textContent=target;
+  markOOD($('v-tgt'), target>CFG.targetMax, CFG.targetMax);
+}
+function setCost(v){
+  cost=v;
+  $('cost').value=cost;
+  $('v-cost').textContent=cost.toFixed(2);
+  markOOD($('v-cost'), cost>CFG.costMax, CFG.costMax);
+}
+
+$('who-agent').addEventListener('click',()=>setMode('agent'));
+$('who-you').addEventListener('click',()=>setMode('you'));
+$('play').addEventListener('click',()=>setRunning(!running));
+$('loop').addEventListener('click',()=>{ loopMode=!loopMode; $('loop').classList.toggle('on',loopMode);
+  $('modetip').innerHTML = loopMode
+    ? 'Loop on — CARL acts every step (clock loops 0→1). Toggle <b>Loop</b> off for a single 150-step episode then free evolution.'
+    : 'CARL acts for 150 steps, then <b>mutes</b> so you can watch the pattern evolve. <b>Loop</b> keeps it acting.';
+  if(!running) render();
+});
+// Step always leaves the run paused and the board one step further on, so it reads as a scrub
+// rather than a nudge to a still-running sim (matches the maze demo).
+async function stepOnce(){
+  setRunning(false);
+  if(busy) return;
+  busy=true;
+  try{
+    if(mode==='agent'){ if(agentActive()) await agentStep(); else freeRunStep(); }
+    else manualStepNoOp();
+  } finally { busy=false; }
+  render();
+}
+$('step1').addEventListener('click', stepOnce);
+window.addEventListener('keydown', e=>{
+  const tag=document.activeElement && document.activeElement.tagName;
+  if(tag==='SELECT'||tag==='INPUT'||tag==='TEXTAREA') return;
+  if(e.key===' '){ stepOnce(); e.preventDefault(); }
+});
+// A "?" badge lives inside its field's <label>, so a click on it would otherwise toggle the
+// checkbox / focus the slider it explains. The tooltip is hover/focus driven; the click is inert.
+// The tooltip itself hangs off the badge's left edge; badges near the right of the page get it
+// flipped to a right anchor, measured on open so it holds at every window width.
+// MathML Core ships in every current engine, but without it a <math> block degrades into a run
+// of loose glyphs rather than nothing -- so probe it once (a rendered <mspace> takes its declared
+// height) and fall back to the linear form if the probe fails.
+(function mathmlFallback(){
+  const box=document.querySelector('.rule-eq'); if(!box) return;
+  const probe=document.createElement('div');
+  probe.style.cssText='position:absolute;visibility:hidden';
+  probe.innerHTML='<math xmlns="http://www.w3.org/1998/Math/MathML"><mspace height="23px"></mspace></math>';
+  document.body.appendChild(probe);
+  const ok=probe.firstChild.firstChild.getBoundingClientRect().height>20;
+  probe.remove();
+  if(!ok){ box.classList.add('fallback'); box.textContent='X(t+dt) = [ X(t) + dt φ(K ∗ X(t)) ]₀¹'; }
+})();
+
+const TIP_W=210;
+document.querySelectorAll('.info-badge').forEach(b=>{
+  // data-tip is the single source of the copy (the CSS renders it via content:attr(data-tip));
+  // the screen-reader name is mirrored from it here rather than duplicated in the markup, so
+  // there is only ever one string to edit. Newlines from the wrapped attribute collapse to
+  // spaces, matching how the visible tooltip lays out.
+  b.setAttribute('aria-label', (b.dataset.tip||'').replace(/\s+/g,' ').trim());
+  const place=()=>b.classList.toggle('flip',
+    b.getBoundingClientRect().left+TIP_W+10 > document.documentElement.clientWidth);
+  b.addEventListener('mouseenter',place);
+  b.addEventListener('focus',place);
+  b.addEventListener('click', e=>{ e.preventDefault(); e.stopPropagation(); });
+});
+$('seed').addEventListener('click',seed20);
+$('clear').addEventListener('click',clearGrid);
+$('tgt').addEventListener('input',e=>{setTarget(+e.target.value); render();});
+$('cost').addEventListener('input',e=>setCost(+e.target.value));
+// Dragging the slider is itself the request to hold that value, so it arms the checkbox.
+$('clock').addEventListener('input',e=>{ clockVal=+e.target.value; clockHold=true;
+  $('clockhold').checked=true; if(!running) render(); });
+$('clockhold').addEventListener('change',e=>{ clockHold=e.target.checked; });
+$('m').addEventListener('input',e=>{mu=+e.target.value; $('v-m').textContent=mu.toFixed(3); drawGrowthViz();});
+$('s').addEventListener('input',e=>{sig=+e.target.value; $('v-s').textContent=sig.toFixed(3); buildKernel();});
+$('betas').addEventListener('change',e=>{const a=e.target.value.split(',').map(x=>parseFloat(x.trim())).filter(x=>!isNaN(x)); if(a.length){betas=a;buildKernel();}});
+$('R').addEventListener('input',e=>{
+  const Rn=+e.target.value, ratio=Rn/R; R=Rn; $('v-R').textContent=R;
+  if(scaleWithR){
+    Ra=Math.max(1,Math.min(20,Math.floor(R/2))); $('ra').value=Ra; $('v-ra').textContent=Ra;
+    setTarget(Math.max(0,Math.min(1000,Math.round(target*ratio*ratio))));
+  }
+  buildKernel(); if(!running) render();
+});
+$('scaleR').addEventListener('change',e=>{scaleWithR=e.target.checked;});
+$('ra').addEventListener('input',e=>{Ra=+e.target.value; $('v-ra').textContent=Ra;});
+$('ma').addEventListener('input',e=>{Ma=+e.target.value; $('v-ma').textContent=Ma.toFixed(2);});
+$('spd').addEventListener('input',e=>{sps=+e.target.value; $('v-spd').textContent=sps+'/s';});
+$('board').addEventListener('change',e=>{ const was=running; setRunning(false); setBoard(+e.target.value); if(was) setRunning(true); });
+$('qchan').addEventListener('change',e=>{qChan=e.target.value; render();});
+
+// ====================================================================================
+//  Theme — bright by default; dark only if the user explicitly switches (persisted)
+// ====================================================================================
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  if(typeof drawRuleViz==='function') drawRuleViz();   // the growth plot is drawn in theme ink
+  $('theme-toggle').textContent = t==='dark' ? '☀️' : '🌙';
+  $('theme-toggle').title = t==='dark' ? 'Switch to light mode' : 'Switch to dark mode';
+  try{ localStorage.setItem('carl-theme', t); }catch(e){}
+}
+function initTheme(){
+  applyTheme(document.documentElement.getAttribute('data-theme')==='dark' ? 'dark' : 'light');
+  $('theme-toggle').addEventListener('click', ()=>{
+    applyTheme(document.documentElement.getAttribute('data-theme')==='dark' ? 'light' : 'dark');
+  });
+}
+
+// ====================================================================================
+//  Boot
+// ====================================================================================
+function populateRecipes(){
+  const sel=$('recipe');
+  RECIPES.forEach((r,i)=>{const o=document.createElement('option');o.value=i;o.textContent=r.name;sel.appendChild(o);});
+  sel.addEventListener('change',()=>applyRecipe(RECIPES[sel.value]));
+}
+async function populatePresets(){
+  let presets=FALLBACK_PRESETS;
+  try{
+    const res=await fetch(CFG.presetsUrl);
+    if(res.ok){ const full=await res.json();
+      // keep the validated default first, then the full distribution
+      presets=[DEFAULT_PRESET, ...full]; }
+  }catch(e){ /* offline / file:// — fall back to inline */ }
+  const sel=$('preset'); sel.innerHTML='';
+  presets.forEach((p,i)=>{const o=document.createElement('option');o.value=i;o.textContent=p.name;sel.appendChild(o);});
+  sel.addEventListener('change',()=>loadPreset(presets[sel.value]));
+}
+// CPU (WASM) only, as in the maze demo. WebGPU was benchmarked here and lost: its
+// per-step dispatch and GPU<->CPU transfer overhead outweighs the compute advantage for a model
+// this small (single sample, 64-192px grid, invoked many times a second), so "available" was
+// never "faster" -- and picking a backend per machine made inference timings incomparable
+// between visitors for no gain.
+async function loadModel(){
+  ort.env.wasm.wasmPaths='https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/';
+  // Single-threaded, unlike the maze demo: this model was measured hanging on session creation
+  // with a threaded pool here, and the per-step work (one small conv net over a 64-192px grid)
+  // is short enough that the thread pool has little to win back anyway.
+  ort.env.wasm.numThreads=1;
+
+  // WASM pays a one-time JIT cost on its very first run. Absorb that here, before the model is
+  // used for real, instead of letting it land on the user's first real simulation step (which
+  // would show up as a multi-second freeze right as they start playing).
+  const warmup=async s=>{
+    try{
+      const feeds={ state:new ort.Tensor('float32',buildStateInput(),[1,K,H,W]),
+                    context:new ort.Tensor('float32',buildContext(),[1,12]) };
+      await s.run(feeds);
+    }catch(e){ /* best-effort -- worst case the first real step pays this cost instead */ }
+  };
+
+  try{
+    session=await ort.InferenceSession.create(CFG.modelUrl,{executionProviders:['wasm']});
+    await warmup(session);
+  }catch(e){
+    console.error(e);
+    $('modetip').innerHTML='Model failed to load — serve over http(s), not file://. <b>You-act</b> mode still works.';
+    setMode('you'); setRunning(true);
+    return;
+  }
+  render();
+}
+(function init(){
+  initTheme();
+  allocGrid(); loadPreset(DEFAULT_PRESET);
+  seed20(); setMode('agent'); render();
+  populateRecipes(); populatePresets(); loadModel();
+  $('recipe').value=0; applyRecipe(RECIPES[0]);
+})();
+</script>
+</body>
+</html>

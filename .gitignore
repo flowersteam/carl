@@ -1,0 +1,23 @@
+social_media_post.txt
+
+# Local tooling
+.claude/
+
+# Raw capture and intermediate render sources -- the site ships the encoded mp4s in
+# assets/videos/, these are the multi-hundred-MB originals they were cut from.
+maze_vids/
+maze_vids_cut/
+assets/videos/*.gif
+assets/videos/double solitons/
+assets/videos/motivation/*.gif
+assets/banner/
+banner/carl_banner_*
+image.png
+profile.js
+
+# Manuscript source lives in the paper repo, not the companion site.
+_ALife2026__Reinforcement_Learning_with_Cellular_Automata*/
+
+# Working copies
+*copy.html
+carl.html
