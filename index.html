@@ -97,7 +97,10 @@
   .subhead{font-family:"Fraunces",serif;font-weight:600;font-size:20px;letter-spacing:-.01em;
     max-width:var(--col);margin:30px 0 12px}
 
-  figure{margin:0 0 14px;max-width:var(--col)}
+  /* A figure and its caption are one unit. The caption sits tight under the media (9px) while
+     the block below it clears by 36px -- well over the 14px between two paragraphs -- so a
+     caption reads as belonging to the picture above it, never as body text that drifted up. */
+  figure{margin:0 0 36px;max-width:var(--col)}
   .screen{background:#000;border:1px solid var(--line);border-radius:12px;overflow:hidden;
     box-shadow:var(--shadow);line-height:0}
   .screen video,.screen img{display:block;width:100%}
@@ -109,7 +112,27 @@
   .plate.chart{max-width:780px;margin-inline:auto}
   figcaption{margin-top:9px;font-size:15.5px;color:var(--muted);max-width:var(--col);line-height:1.55}
   figcaption b{color:var(--ink);font-weight:600}
-  .pair{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:var(--col)}
+  /* Two-panel figures split their caption so each half sits under the panel it describes, on
+     the same tracks and gutter as the pair above -- the reader stops carrying a "Left:" across
+     the gap, so the label goes away entirely. Ragged right: half the measure is too narrow to
+     justify without opening rivers, the same reason the body text unjustifies on small screens.
+     A .full child spans both columns, for a lead-in or a closing remark covering both panels. */
+  figcaption.split{display:grid;grid-template-columns:1fr 1fr;gap:11px 14px;text-align:left}
+  figcaption.split>.full{grid-column:1/-1}
+  /* Panels weighted by aspect ratio pass their split down from the figure, so the caption
+     columns land on the same edges as the plates. */
+  figcaption.split.vg{grid-template-columns:var(--vg,1fr 1.3516fr);column-gap:34px}
+  .exgrid figcaption.split{column-gap:48px}
+  /* Follow each pair's own stacking breakpoint, so caption and panels collapse together. */
+  @media(max-width:760px){figcaption.split.vg{grid-template-columns:1fr;column-gap:14px}}
+  @media(max-width:700px){figcaption.split{grid-template-columns:1fr;column-gap:14px}}
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:var(--col);
+    margin-bottom:36px}
+  /* Two figures side by side close at the pair's edge rather than each trailing its own space,
+     which would leave the row's bottom edge ragged when the captions differ in height. A pair
+     nested inside a figure leaves the spacing to that figure. */
+  .pair>figure{margin-bottom:0}
+  figure .pair{margin-bottom:0}
   /* The steering figure's two panels are given a common height and centred as a pair, so the
      episode and the chart read as one row rather than two mismatched blocks. Each panel keeps
      its own aspect ratio and takes whatever width that height implies. */
@@ -227,7 +250,7 @@
     border-radius:5px;padding:1px 6px;line-height:1.35}
   /* Frame strips live inside their experiment's section now, so they take the section
      width and carry their own legend rather than a shared one up in the banner. */
-  .keyfig{max-width:var(--col);margin-bottom:18px}
+  .keyfig{max-width:var(--col);margin-bottom:36px}
   .keyfig .key-row{margin-top:10px}
   .keyfig figcaption{margin-top:8px}
   /* Wide viewports only: the key becomes a margin note beside the strip, one entry per row.
@@ -656,6 +679,7 @@
       low-cost episodes allow the agent to freely discover viable configurations, while high-cost
       episodes pressure it to find self-sustaining ones.
     </p>
+
     <figure class="keyfig">
       <div class="strip">
         <div class="frame"><img src="banner/frames/create_t0.png" alt=""><span class="t">t = 0</span></div>
@@ -677,7 +701,7 @@
     <h4 class="subhead">Results</h4>
 
     <p class="lede">
-      <b>Mass tracking evaluation.</b> We evaluate the trained agent on the Cartesian
+      We evaluate the trained agent on the Cartesian
       product of target masses <span class="var">&tau; &isin; {0, 25, &hellip;, 400}</span>, action
       costs <span class="var">c &isin; {0, 0.05, &hellip;, 0.4}</span>, and all 85 training update
       rules, running 16 episodes per combination. Both <span class="var">&tau;</span> and
@@ -692,20 +716,28 @@
       <div class="key-row">
         <span class="item"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" style="color:var(--k-box)"><rect x="4.6" y="4.6" width="10.8" height="10.8" fill="none" stroke="currentColor" stroke-width="2.4"/></svg><span>Target masses and action costs seen in training; outside it is test time only</span></span>
       </div>
-      <figcaption><b>Left: Higher action costs result in sparser interventions.</b> When actions are free, 
-        the agent acts on nearly every step, micromanaging the grid. As soon as there is any cost, 
-        action rate sharply drops, and decreases monotonically with the cost.
-        <b>Right: Solitons form most reliably for targets between
-        <span class="var">&tau;</span> &asymp; 100 and 150</b>.
-        Below <span class="var">&tau;</span> &asymp; 50 almost none survive &mdash; masses that small
-        cannot persist without continuous intervention. Action costs have little impact on the soliton formation rate,
-        which decreases only slightly at very low values. However,
-        we speculate that varying the action cost per episode was
-        nonetheless crucial during training.</figcaption>
+      <figcaption class="split">
+        <div><b>Higher action costs give sparser interventions.</b> With free actions the agent
+          micromanages, acting on nearly every step; any cost drops the rate sharply, and it falls
+          monotonically from there.</div>
+        <div><b>Solitons form most reliably at <span class="var">&tau;</span> &asymp; 100&ndash;150.</b>
+          Below <span class="var">&tau;</span> &asymp; 50 almost none survive &mdash; masses that
+          small cannot persist unaided. Action cost barely affects the formation rate, though we
+          speculate that varying it per episode still mattered during training.</div>
+      </figcaption>
     </figure>
 
     <figure>
-      <div class="pair vg" style="--vg:1.2478fr 1fr">
+      <div class="plate">
+        <video autoplay muted playsinline loop preload="none"
+          aria-label="Forty hand-selected successful episodes, each on a different update rule, played through three phases: the agent intervening for 150 steps, then 5,000 steps of free evolution under the soliton filter, then 1,000 further steps. Each board ends holding a localized pattern."><source src="assets/videos/curated_solitons.mp4" type="video/mp4"></video>
+      </div>
+      <figcaption><b>Forty successful episodes.</b> Runs in which
+        the trained agent produced a soliton, each under a different training update rule.</figcaption>
+    </figure>
+
+    <figure style="--vg:1.2478fr 1fr">
+      <div class="pair vg">
         <div class="plate"><img src="assets/figures/mass_sweep_soliton_mass.svg" loading="lazy" alt="Heatmap of mean soliton mass over target mass and action cost: mass rises with the target and barely varies with the action cost."></div>
         <div class="m2x2" aria-label="Four Lenia boards, each under a different update rule, on which the agent creates two solitons that persist after it is removed.">
           <div class="frame"><video autoplay muted playsinline loop preload="metadata"><source src="assets/videos/double_rule003.mp4" type="video/mp4"></video></div>
@@ -714,28 +746,18 @@
           <div class="frame"><video autoplay muted playsinline loop preload="metadata"><source src="assets/videos/double_rule073.mp4" type="video/mp4"></video></div>
         </div>
       </div>
-      <figcaption><b>Left: the solitons carry the mass they were asked for.</b> Mean soliton mass
-        climbs steadily with the target and barely responds to the action cost; white cells are
-        conditions where no soliton formed at all. Toward the top of the range it falls increasingly
-        short of the target &mdash; the signature of that mass being split across more than one
-        pattern. <b>Right: that split, in four episodes.</b> Rather than build one massive
-        soliton, the agent seeds <em>two</em>, whose masses together meet the target. Each board runs
-        a different update rule, first the agent's episode and then the free-evolution phase with the
-        agent taken away; both solitons persist. The grid wraps, so a pattern crossing one edge
-        reappears at the opposite one.</figcaption>
-    </figure>
-
-    <figure>
-      <div class="plate">
-        <video autoplay muted playsinline loop preload="none"
-          aria-label="Forty hand-selected successful episodes, each on a different update rule, played through three phases: the agent intervening for 150 steps, then 5,000 steps of free evolution under the soliton filter, then 1,000 further steps. Each board ends holding a localized pattern."><source src="assets/videos/curated_solitons.mp4" type="video/mp4"></video>
-      </div>
-      <figcaption><b>Forty successful episodes, start to finish.</b> Hand-selected runs in which
-        the trained agent produced a soliton, each under a different training update rule. The agent
-        acts for the first 150 steps; the final state is then rolled out for 5,000 Lenia steps
-        without any agent intervention and passed to the soliton filter, with a further 1,000 steps
-        beyond it. These show what a success looks like across rules; the rate at which successes
-        occur is given by the sweep above.</figcaption>
+      <figcaption class="split vg">
+        <div><b>The solitons carry the mass they were asked for.</b> Mean soliton mass climbs
+          steadily with the target and barely responds to the action cost; white cells are
+          conditions where no soliton formed at all. Toward the top of the range it falls
+          increasingly short of the target &mdash; the signature of that mass being split across
+          more than one pattern.</div>
+        <div><b>That split, in four episodes.</b> Rather than build one massive soliton, the agent
+          seeds <em>two</em>, whose masses together meet the target. Each board runs a different
+          update rule, first the agent's episode and then the free-evolution phase with the agent
+          taken away; both solitons persist. The grid wraps, so a pattern crossing one edge
+          reappears at the opposite one.</div>
+      </figcaption>
     </figure>
 
 
@@ -783,24 +805,27 @@
       different grid sizes without modification.
     </p>
 
-    <figure class="keyfig">
-      <div class="pair vg" style="--vg:1.2fr 1fr">
+    <figure class="keyfig" style="--vg:1.2fr 1fr">
+      <div class="pair vg">
         <div class="plate"><img src="assets/figures/action_gen_soliton_pct.svg" loading="lazy" alt="Heatmap of soliton creation rate over action radius and action magnitude, with a red square marking the training condition. A bright band runs along the curve where the product of the two is constant."></div>
         <div class="plate"><img src="assets/figures/unseen_radii_soliton_pct.svg" loading="lazy" alt="Line plot of soliton formation rate against kernel radius for CARL, the best heuristic baseline, and no-op. CARL peaks at the training radius and stays above both baselines everywhere."></div>
       </div>
       <div class="key-row">
         <span class="item"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" style="color:var(--k-box)"><rect x="4.6" y="4.6" width="10.8" height="10.8" fill="none" stroke="currentColor" stroke-width="2.4"/></svg><span>Action radius and magnitude seen in training; outside it is test time only</span></span>
       </div>
-      <figcaption><b>Left: the agent adapts to action parameters it never saw.</b> Performance holds
-        where <span class="var">R<sub>a</sub> &middot; M<sub>a</sub></span> is close to its training
-        value &mdash; that is, where the integrated effect of each action matches training
-        conditions &mdash; and degrades gracefully away from that curve. It drops to zero only for
-        low-impact settings, where individual actions are too weak to seed or sustain any mass.
-        <b>Right: and to Lenia worlds at other scales.</b> Performance drops away from the training
-        radius, but the agent still creates solitons at a relatively high rate even for kernels
-        double or half the training size, remaining well above the no-op baseline across all tested
-        radii. The drop is sharper for down-scaled kernels, likely due to discretization
-        effects.</figcaption>
+      <figcaption class="split vg">
+        <div><b>The agent adapts to action parameters it never saw.</b> Performance holds where
+          <span class="var">R<sub>a</sub> &middot; M<sub>a</sub></span> is close to its training
+          value &mdash; that is, where the integrated effect of each action matches training
+          conditions &mdash; and degrades gracefully away from that curve. It drops to zero only
+          for low-impact settings, where individual actions are too weak to seed or sustain any
+          mass.</div>
+        <div><b>The agent adapts to Lenia worlds at other scales.</b> Performance drops away from the
+          training radius, but the agent still creates solitons at a relatively high rate even for
+          kernels double or half the training size, remaining well above the no-op baseline across
+          all tested radii. The drop is sharper for down-scaled kernels, likely due to
+          discretization effects.</div>
+      </figcaption>
     </figure>
 
     <p class="lede">
@@ -811,6 +836,11 @@
       <span class="var">&tau; &isin; {50, 100, 150, 200, 250}</span> and
       <span class="var">c = 0.1</span>, at kernel radii
       <span class="var">&rho; &isin; {10, 14, 18}</span>.
+      <b>A trained agent can map soliton regions of new update rule spaces</b>, charting which
+      combinations of kernel and growth parameters support solitons. CARL discovers solitons across a
+      range of unseen kernels, though the success rate varies considerably from kernel to kernel
+      &mdash; some admit large regions of soliton-supporting parameters, while others are far more
+      restrictive. We show three of the seven kernels below.
     </p>
 
     <figure>
@@ -818,13 +848,11 @@
         <div class="plate"><img src="assets/figures/novel_rules_grid_soliton_pct.svg" loading="lazy" alt="A three by three grid of heatmaps over growth centre mu and growth width sigma, for three unseen kernels and three kernel radii, showing where solitons form."></div>
         <div class="plate"><img src="assets/figures/novel_rules_grid_mean_final_mass_soliton.svg" loading="lazy" alt="The same three by three grid, showing mean soliton mass instead of formation rate."></div>
       </div>
-      <figcaption><b>A trained agent maps an unseen rule space in a single sweep.</b> Left:
-        likelihood of soliton creation as a function of the growth function parameters
-        <span class="var">(&mu;, &sigma;)</span>, for a fixed kernel and radius. Right: mean soliton
-        mass under the same conditions. The agent discovers solitons across a range of unseen
-        kernels, though the success rate varies considerably from kernel to kernel &mdash; some
-        admit large regions of soliton-supporting parameters, while others are far more
-        restrictive.</figcaption>
+      <figcaption class="split">
+        <div><b>Likelihood of soliton creation</b> as a function of the growth function parameters
+          <span class="var">(&mu;, &sigma;)</span>, for a fixed kernel and radius.</div>
+        <div><b>Mean soliton mass</b> under the same conditions.</div>
+      </figcaption>
     </figure>
 
     <figure>
@@ -851,16 +879,8 @@
         <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.3400, sigma 0.0560."><source src="assets/videos/novel-rules/1_soliton_mu0.3400_sigma0.0560.mp4" type="video/mp4"></video></div>
         <div class="frame"><video autoplay muted playsinline loop preload="metadata" aria-label="Episode under an unseen kernel at mu 0.3600, sigma 0.0580."><source src="assets/videos/novel-rules/soliton_mu0.3600_sigma0.0580.mp4" type="video/mp4"></video></div>
       </div>
-      <figcaption><b>Patterns the agent produces in update rules it was never trained on.</b>
-        Each board is one episode under a different <span class="var">(K, &mu;, &sigma;)</span>
-        combination at <span class="var">&rho; = 18</span>, running through the agent's intervention
-        and on into the soliton filter period; tiles are ordered by
-        <span class="var">&mu;</span>, then <span class="var">&sigma;</span>. Most settle into a
-        single localized soliton, several of them structured &mdash; concentric rings, lobed
-        shells, a gear. A few do not: at
-        <span class="var">(&mu;, &sigma;) = (0.28, 0.036)</span>, (0.30, 0.040) and (0.33, 0.058)
-        the pattern extends into a chain or a band that spans the grid, which the soliton filter
-        rejects.</figcaption>
+      <figcaption><b>CARL discovers diverse solitons.</b> A hand-picked selection from the
+        novel-rule sweep experiment.</figcaption>
     </figure>
 
     <a class="try" href="soliton_creation_demo.html">Create a soliton yourself, in the browser &rarr;</a>
@@ -980,13 +1000,16 @@
           </div>
         </div>
       </div>
-      <figcaption><b>Eight episodes, four of each outcome.</b> Blue and orange arrows represent
-        target and current movement directions, respectively; the glowing marker is the destination the
-        user is steering toward. <b>Left:</b> the soliton is redirected at each junction and arrives
-        intact &mdash; note how well its shape is preserved throughout. <b>Right:</b> the two ways it
-        goes wrong. The pattern either thins out until too little of it remains to steer, or it
-        destabilizes and spreads across the grid. Neither is recoverable: once a soliton has lost
-        its coherent form, the agent cannot rebuild it.</figcaption>
+      <figcaption class="split">
+        <div class="full"><b>Eight episodes, four of each outcome.</b> Blue and orange arrows
+          represent target and current movement directions, respectively; the glowing marker is the
+          destination the user is steering toward.</div>
+        <div>The soliton is redirected at each junction and arrives intact &mdash; note how well its
+          shape is preserved throughout.</div>
+        <div>The two ways it goes wrong. The pattern either thins out until too little of it remains
+          to steer, or it destabilizes and spreads across the grid. Neither is recoverable: once a
+          soliton has lost its coherent form, the agent cannot rebuild it.</div>
+      </figcaption>
     </figure>
 
     <p class="lede">
