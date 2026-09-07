@@ -356,10 +356,9 @@
      do, then a readout of each clip by position. The row takes the same measure as the prose
      and the figures below, so the whole page keeps one left and right edge. */
   .clips{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:var(--col)}
-  .clip{display:block;text-decoration:none;color:inherit}
+  .clip{display:block}
   .clip video{display:block;width:100%;aspect-ratio:1;object-fit:cover;
     border-radius:12px;border:1px solid var(--line2);background:#000}
-  .clip:hover video{border-color:var(--accent)}
   /* Figure 1 is the two halves of that opening in one unit: the clips on top, the loop that
      produces them underneath. The band between them is wider than the gutter inside the clip
      row, so the diagram reads as the second half of the figure rather than as a fourth panel. */
@@ -427,30 +426,30 @@
   <section id="cover" style="margin:34px 0 0">
     <figure id="fig1" class="cover-fig">
       <div class="clips">
-        <a class="clip" href="#creation">
+        <div class="clip">
           <video autoplay muted playsinline loop preload="metadata" poster="banner/videos/creation.jpg">
             <source src="banner/videos/creation.mp4" type="video/mp4"></video>
-        </a>
-        <a class="clip" href="#steering">
-          <video autoplay muted playsinline loop preload="metadata" poster="banner/videos/steering.jpg">
-            <source src="banner/videos/steering.mp4" type="video/mp4"></video>
-        </a>
-        <a class="clip" href="#human">
+        </div>
+        <div class="clip">
+          <video autoplay muted playsinline loop preload="metadata" poster="banner/videos/steering.jpg?v=2">
+            <source src="banner/videos/steering.mp4?v=2" type="video/mp4"></video>
+        </div>
+        <div class="clip">
           <video autoplay muted playsinline loop preload="metadata" poster="banner/videos/maze.jpg">
             <source src="banner/videos/maze.mp4" type="video/mp4"></video>
-        </a>
+        </div>
       </div>
       <div class="plate">
         <img src="banner/frames/framework.png" alt="The CARL loop: a goal generator samples a goal, a goal-conditioned RL policy observes the Lenia state and outputs an intervention, the Lenia update rule advances the grid, and a goal-conditioned reward feeds a training signal back to the policy.">
       </div>
-      <figcaption>In this work, we introduce <b>CARL</b>, an autotelic reinforcement learning
-        agent that discovers and controls <b>solitons</b>, the localized, self-organizing patterns
-        of Lenia, a continuous cellular automaton. A trained agent (1) creates a soliton,
-        (2) steers an existing soliton in a chosen direction, and (3) takes directional commands
-        from a human in real time to guide a soliton through a maze. All three run on the same
-        loop: CARL samples a goal at the start of each episode, such as a soliton's target movement
-        direction, then at each step observes the grid and, conditioned on that goal, adds or
-        removes cell activations. Afterwards, the Lenia update rule advances the state.</figcaption>
+      <figcaption>We introduce CARL, a reinforcement learning agent that discovers and
+        controls self-organizing patterns in Lenia, a continuous cellular automaton. Trained agents
+        can (1) create self-organizing patterns, (2) control the patterns' behavior, and
+        (3) follow human directional commands in real time to guide patterns through a
+        maze. All three run on the same loop, shown below: CARL samples a goal at the start of
+        an episode, then at every step locally adds or removes cell activations, after which the
+        Lenia update rule advances the state.</figcaption>
+      
     </figure>
   </section>
 
@@ -665,10 +664,10 @@
         intervention. Interventions are local and simple: an action adds or removes mass in a small disk
         around a single cell. The agent may also choose not to intervene.</p>
 
-      <p>Three things are sampled at the start of each episode: the <b>goal</b>, the target the
-        agent must reach; the <b>action cost</b>, the price charged for every intervention; and the
-        <b>update rule</b>, the dynamics the episode runs under. Lenia's rule is parameterized, and
-        we train across a set of rules rather than a single one.</p>
+        <p>Three things are sampled at the start of each episode: the goal, the target the
+          agent must reach; the action cost, the negative rewards incurred for every intervention; and the
+          update rule, the dynamics the episode runs under. Lenia's rule is parameterized, and
+          we train across a set of rules rather than a single one.</p>
       <p>The action cost shapes how the agent reaches its goal. It can intervene at every step,
         micromanaging the system, or place a few interventions well and let the system's own
         dynamics carry the state the rest of the way. A higher cost tips the balance toward the
@@ -812,9 +811,8 @@
         <div class="plate chart"><img src="assets/figures/mass_training_rules_by_kernel.svg" loading="lazy"
           alt="Scatter of the 85 training update rules in growth-width sigma by growth-centre mu, marked by which of six kernels each uses. The rules follow a rising band."></div>
         <figcaption><b>The 85 training update rules.</b> Each point is one rule, positioned by its
-          growth parameters and marked by its kernel <span class="var">&beta;</span>. They trace a
-          narrow band &mdash; wider growth needs a higher centre to stay in the regime where
-          patterns survive. The rules were hand-selected using the
+          growth parameters and marked by its kernel <span class="var">&beta;</span>. The rules were hand-selected from the
+
           <a class="cite" href="https://lenia-explorer.vercel.app/" target="_blank" rel="noopener" data-cite="Barbora Hudcov&aacute;, Franti&scaron;ek Du&scaron;ek, Marco Tuccio and Cl&eacute;ment Hongler (2025). Visualizing the Structure of Lenia Parameter Space. ALIFE 2025: Ciphers of Life: Companion Proceedings of the Artificial Life Conference 2025. MIT Press.">Lenia Explorer</a>
           of <a class="cite" href="https://arxiv.org/abs/2601.01932" target="_blank" rel="noopener" data-cite="Barbora Hudcov&aacute;, Franti&scaron;ek Du&scaron;ek, Marco Tuccio and Cl&eacute;ment Hongler (2025). Visualizing the Structure of Lenia Parameter Space. ALIFE 2025: Ciphers of Life: Companion Proceedings of the Artificial Life Conference 2025. MIT Press.">Hudcov&aacute; et al., 2025</a>.</figcaption>
       </figure>
@@ -899,9 +897,7 @@
       <summary><span>Comparison with baselines</span></summary>
       <p class="lede">
         We compare CARL against several heuristic baselines across all training update rules,
-        with a fixed action cost of <span class="var">c = 0.1</span> and mass targets <span class="var">&tau; &isin; {50, 100, 150, 200}</span>. Each name below is
-        the label used in the chart: <em>near</em> places the action at a cell that already holds
-        mass, <em>rand</em> at a random cell, and <em>+thr</em> adds the 10% threshold.
+        with a fixed action cost of <span class="var">c = 0.1</span> and mass targets <span class="var">&tau; &isin; {50, 100, 150, 200}</span>. 
       </p>
       <ul class="blist">
         <li><b>No-op.</b> Never acts; measures how often the initial conditions alone produce solitons.</li>
@@ -940,14 +936,14 @@
     <details>
       <summary><span>Modified action parameters</span></summary>
       <p class="lede">
-        An intervention is a tuple <span class="var">a<sup>t</sup> = (x, y, &delta;)</span> with
-        <span class="var">&delta; &isin; {&minus;1, 0, +1}</span>: it changes every cell within
-        radius <span class="var">R<sub>a</sub></span> of <span class="var">(x, y)</span> by
-        <span class="var">&delta; &middot; M<sub>a</sub></span>, clipped to
-        <span class="var">[0, 1]</span> &mdash; remove mass, do nothing, or add it. In training
-        these two hyperparameters are fixed at <span class="var">R<sub>a</sub> = 5</span> and
-        <span class="var">M<sub>a</sub> = 0.3</span>, so the agent's only choice at each step is
-        where to act and which of the three action types to use.
+        At every step the agent picks a spot on the grid and adds mass, removes mass, or does
+        nothing. Two parameters set what that means: the <b>action radius</b>
+        <span class="var">R<sub>a</sub></span>, how far the intervention reaches, and the
+        <b>action magnitude</b> <span class="var">M<sub>a</sub></span>, how much every cell within
+        that radius moves up or down, clipped to stay in <span class="var">[0, 1]</span>. Both are
+        fixed during training, at <span class="var">R<sub>a</sub> = 5</span> and
+        <span class="var">M<sub>a</sub> = 0.3</span>, so all the agent chooses is where to act and
+        which of the three actions to take.
       </p>
       <p class="lede">
         Here we change <span class="var">R<sub>a</sub></span> and
@@ -977,19 +973,18 @@
         policy network is fully convolutional, it can be deployed on different grid sizes without
         modification.
       </p>
+      <p class="lede">
+        Note that this is a particularly challenging form of generalization: rescaling the kernel
+        does not simply scale the emerging patterns, but can fundamentally alter their behavior due
+        to discretization effects. The same update rule at different kernel radii can produce
+        solitons with different shapes, sizes, movement patterns, and levels of robustness.
+      </p>
       <figure class="sidefig">
         <div class="plate solo"><img src="assets/figures/unseen_radii_soliton_pct.svg" loading="lazy" alt="Line plot of soliton formation rate against kernel radius for CARL, the best heuristic baseline, and no-op. CARL peaks at the training radius and stays above both baselines everywhere."></div>
-        <figcaption><b>The agent adapts to rescaled Lenia worlds.</b> Solitons still form at a high
-          rate for kernels double or half the training size, well above no-op at every radius. The
-          drop is sharper for down-scaled kernels, likely from discretization effects.</figcaption>
+        <figcaption><b>The agent adapts to rescaled Lenia worlds.</b> Solitons are still created at a higher
+          rate than with the baseline methods. The
+          drop in performance is sharper for down-scaled kernels, likely from discretization effects.</figcaption>
       </figure>
-      <p class="lede">
-        Rescaling the kernel is not a change of zoom. The lattice stays discrete while the kernel
-        grows or shrinks around it, so rescaling does not simply scale the emerging patterns but
-        can alter their behavior through discretization effects. The same update rule at different
-        radii produces solitons with different shapes, sizes, movement patterns and levels of
-        robustness, as the mosaic below illustrates.
-      </p>
       <figure class="keyfig" style="margin:18px 0 24px">
         <div class="rmosaic" role="img" aria-label="A mosaic of whole Lenia worlds at three kernel radii, every world drawn at the same cells-per-pixel. Sixteen small worlds at radius six, four worlds of twice the width at radius twelve, and one world of four times the width at radius twenty-four, each holding a soliton the agent created.">
         <div class="rblock" style="--t:38;--n:4">
@@ -1029,22 +1024,14 @@
           <span class="slab">&rho; = 24</span>
         </div>
         </div>
-        <figcaption><b>Solitons the agent created at three kernel radii</b>, none of them the
-          training radius <span class="var">&rho; = 10</span>. Each tile is a whole world, drawn at
-          the same cells-per-pixel: the grid scales with <span class="var">&rho;</span>, so a world
-          at <span class="var">&rho; = 24</span> is four times one at
-          <span class="var">&rho; = 6</span> across. Every clip within a block runs a different
-          update rule. At <span class="var">&rho; = 6</span> a soliton spans a handful of cells; at
-          <span class="var">&rho; = 24</span> the same kind of object resolves internal structure
-          the smaller grids cannot.</figcaption>
+        <figcaption><b>Solitons the agent created at three kernel radii</b>. Note how much the solitons differ in their
+          size across scales (videos are true to scale).
       </figure>
       <p class="lede">
-        This axis also carries a practical benefit. Grid size scales with
-        <span class="var">&rho;</span>, and a Lenia step costs roughly the square of the grid width,
+        This experiment also carries a practical benefit. Experiments with large radius
+        <span class="var">&rho;</span> are highly expensive,
         so training at a small radius and deploying at a large one amounts to fitting a controller
-        in a cheap simulator and running it at high fidelity. Since the kernel radius, grid size and
-        action scale are adjusted together, transfer along this axis requires absorbing a shift in
-        dynamics, world size and action scale at once, none of which the agent observes.
+        in a cheap simulator and running it at high fidelity.
       </p>
     </details>
 
@@ -1058,11 +1045,9 @@
         <span class="var">&tau; &isin; {50, 100, 150, 200, 250}</span> and
         <span class="var">c = 0.1</span>, at kernel radii
         <span class="var">&rho; &isin; {10, 14, 18}</span>.
-        <b>A trained agent can map soliton regions of new update rule spaces</b>, charting which
-        combinations of kernel and growth parameters support solitons. CARL discovers solitons across a
-        range of unseen kernels, though the success rate varies considerably from kernel to kernel
-        &mdash; some admit large regions of soliton-supporting parameters, while others are far more
-        restrictive. We show three of the seven kernels below.
+        <b>A trained agent can map new update rule spaces for regions supporting solitons</b>,
+        in a sample efficient manner.
+        We show three of the seven kernels below.
       </p>
 
       <figure>
@@ -1071,7 +1056,7 @@
           <div class="plate"><img src="assets/figures/novel_rules_grid_mean_final_mass_soliton.svg" loading="lazy" alt="The same three by three grid, showing mean soliton mass instead of formation rate."></div>
         </div>
         <figcaption class="split">
-          <div><b>Likelihood of soliton creation</b> as a function of the growth function parameters
+          <div><b>Soliton creation likelyhood,</b> as a function of the growth function parameters
             <span class="var">(&mu;, &sigma;)</span>, for a fixed kernel and radius.</div>
           <div><b>Mean soliton mass</b> under the same conditions.</div>
         </figcaption>
@@ -1123,9 +1108,10 @@
     </p>
     <p class="lede">
       A soliton's movement direction is measured by its center-of-mass displacement over the last
-      four timesteps. The reward combines the cosine similarity between the current and target
-      direction with a mass penalty, as in the previous task, here holding the mass of the initial
-      state.
+      four timesteps. The reward is the sum of three terms: 1) the cosine similarity between this
+      direction and the target direction, which rewards alignment; 2) a mass penalty, as in the
+      previous task, but with the target mass set to that of the initial state; and 3) the action cost, 
+      as before.
     </p>
 
     <!-- Same fold as the creation task: the formal goal space and reward for readers reproducing
@@ -1138,26 +1124,22 @@
         <span class="var">&#x1D4A2; = &#x1D49F; &times; &#x1D49E; &times; &#x1D4AE;</span>, where
         <span class="var">&#x1D49F;</span> is the unit circle of target directions,
         <span class="var">&#x1D49E;</span> the set of action costs, and <span class="var">&#x1D4AE;</span>
-        the set of 48 solitons the creation agent discovered in the kernel-scaling test at radius
+        the 48 solitons the creation agent discovered in the kernel-scaling test at radius
         <span class="var">&rho; = 18</span> &mdash; the larger radius is used because solitons at
         smaller radii tend to move chaotically. At the start of each 200-step episode CARL uniformly
-        samples a goal <span class="var">g = (d, c, s)</span>: a unit direction
-        <span class="var">d</span>, an action cost <span class="var">c &isin; [0, 5]</span>, and a
-        soliton <span class="var">s</span>, which is placed on the 115&times;115 grid under its own
-        update rule and randomly rotated. The reward at each step is
+        samples a goal <span class="var">g = (d, c, s)</span>, with
+        <span class="var">c &isin; [0, 5]</span> and the soliton <span class="var">s</span> placed on
+        a 115&times;115 grid. The reward at each step is
       </p>
       <div class="eq">r = cos(v<sup>t</sup>, d) &minus; &lambda; &middot; &radic;<span class="rad">|M<sup>t</sup> &minus; &tau;| / N</span> &minus; c &middot; <b>1</b>[&delta;<sup>t</sup> &ne; 0]</div>
       <p class="lede">
         where <span class="var">v<sup>t</sup></span> is the soliton's center-of-mass displacement
         over the last four timesteps, so <span class="var">cos(v<sup>t</sup>, d)</span> scores how
-        well its current heading aligns with the target direction. The remaining two terms are the
-        creation task's reward carried over: a mass penalty with weight
-        <span class="var">&lambda; = 0.2</span>, whose target <span class="var">&tau; = M<sup>0</sup></span>
-        is the mass of the initial state &mdash; it keeps the agent from steering by simply
-        destroying and rebuilding the pattern &mdash; and the same per-intervention charge, weighted
-        by the sampled action cost <span class="var">c</span>. The alignment term is
-        <span class="var">O(1)</span> per step, so the action cost is sampled over a correspondingly
-        wider range than in the creation task.
+        well its current heading aligns with the target direction. The remaining two terms are 
+        mass deviation and the action cost, as before. 
+        Here, the mass term acts as an auxiliary loss: its target is the mass of the initial state, 
+        penalizing the agent when the soliton is changed too strongly.
+   
       </p>
       </div>
     </details>
@@ -1178,9 +1160,8 @@
         <span class="item"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" style="color:var(--k-del)"><circle cx="10" cy="10" r="6.4" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M5.5 5.5 14.5 14.5M14.5 5.5 5.5 14.5" stroke="currentColor" stroke-width="1.9"/></svg><span>removes mass at this cell</span></span>
       </div>
       <figcaption><b>Snapshots of a steering episode.</b> The two arrows start apart. The agent
-        touches one flank of the soliton a handful of times &mdash; adding mass, removing it &mdash;
-        the heading swings onto the target, and from there the arrows stay locked together with the
-        agent idle. It nudges rather than drives.</figcaption>
+        performs a burst of interventions, after which the soliton stabilizes into the desired
+        heading.</figcaption>
     </figure>
 
     <p class="lede">
@@ -1190,30 +1171,36 @@
       the new heading unassisted.
     </p>
 
+    <p class="lede">
+      <b>Generalization.</b> To test whether the policy transfers beyond what it was trained on, we
+      hold out both solitons and directions: the 48 solitons are split into 24 training and 24
+      holdout, and the circle of target directions into four quadrants, of which only two opposite
+      ones are used in training. Each of the four resulting conditions is evaluated over 128
+      episodes, averaging the cosine similarity across all 200 steps of each. Performance on unseen
+      solitons is essentially unchanged &mdash; 0.91&nbsp;&plusmn;&nbsp;0.10 mean cosine similarity
+      against 0.91&nbsp;&plusmn;&nbsp;0.14 in the training condition &mdash; suggesting the policy
+      captures direction-dependent strategies that transfer across soliton morphologies. The drop
+      for unseen <em>directions</em> (0.81&nbsp;&plusmn;&nbsp;0.14, and
+      0.76&nbsp;&plusmn;&nbsp;0.15 when both are held out) indicates that the mapping from direction
+      to intervention pattern is only partially learned.
+    </p>
+
     <figure>
       <div class="pair vg">
         <div class="screen">
-          <video autoplay muted playsinline loop preload="metadata" poster="banner/videos/steering.jpg">
-            <source src="banner/videos/steering.mp4" type="video/mp4">
+          <video autoplay muted playsinline loop preload="metadata" poster="banner/videos/steering.jpg?v=2">
+            <source src="banner/videos/steering.mp4?v=2" type="video/mp4">
           </video>
         </div>
         <div class="plate chart">
           <img src="assets/figures/steering_direction_generalization.svg" loading="lazy" alt="Bar chart of mean cosine similarity on a two-by-two grid of train and holdout solitons crossed with train and holdout target directions.">
         </div>
       </div>
-      <figcaption><b>Left: a steering episode at full speed</b> &mdash; the same run the strip above
-        samples frame by frame. <b>Right: the policy generalizes to solitons it has never
-        steered.</b> The 48 solitons are split into 24 training and 24 holdout; the circle of target
-        directions is split into four quadrants, of which only two opposite ones are used in
-        training. Each of the four conditions is evaluated over <b>128 episodes</b>, averaging the
-        cosine similarity across all 200 steps of each; error bars are one standard deviation.
-        Mean cosine similarity is 0.91&nbsp;&plusmn;&nbsp;0.14 in the training condition
-        and essentially unchanged, 0.91&nbsp;&plusmn;&nbsp;0.10, on unseen solitons &mdash;
-        nearly lossless, suggesting the policy captures direction-dependent strategies that transfer
-        across soliton morphologies. The drop for unseen <em>directions</em>
-        (0.81&nbsp;&plusmn;&nbsp;0.14, and 0.76&nbsp;&plusmn;&nbsp;0.15 when both are held out)
-        indicates that the mapping from direction to intervention pattern is only partially
-        learned.</figcaption>
+      <figcaption class="split vg">
+        <div><b>A full steering episode example.</b></div>
+        <div><b>The policy generalizes to solitons it has never steered.</b> Each condition is evaluated over <b>128 episodes</b>; error bars are
+          one standard deviation.</div>
+      </figcaption>
     </figure>
   </section>
 
@@ -1272,7 +1259,7 @@
       single-channel Lenia grid, identical to its training setting. Furthermore, the agent was never
       trained with changing goals, yet it successfully redirects solitons multiple times within a
       single episode while preserving their coherent shape. Reducing the action cost makes the agent
-      intervene more frequently and advance faster.
+      intervene more frequently and advance the soliton faster.
     </p>
     <p class="lede">
       Although the agent performs well, several failure modes emerge. Wall collisions can cause the
@@ -1285,40 +1272,45 @@
   <section id="discussion">
     <h2>Discussion</h2>
     <p class="lede">
-      Rather than setting initial conditions and passively observing outcomes, a goal-conditioned
-      policy here observes the evolving system and applies minimal, local perturbations toward
-      diverse self-generated goals. Instantiated on Lenia as an
-      agentic system we call CARL, the framework discovers solitons across a wide range of
-      update rules and procedurally generated initial states, generalizes to
-      out-of-distribution conditions, maps novel update rule spaces to find the regions that
-      support solitons, and &mdash; with a second policy &mdash; controls the solitons it finds.
+      We introduce a closed-loop framework for autonomous discovery and control of self-organizing
+      phenomena, based on autotelic RL. Rather than setting initial conditions and passively observing
+      outcomes, a goal-conditioned policy observes the evolving complex system and applies minimal, local
+      perturbations toward diverse self-generated goals. We instantiate the framework on Lenia as a system
+      named CARL, which discovers solitons across a wide range of update rules and procedurally generated
+      initial states, generalizes to out-of-distribution conditions, and can efficiently map novel update
+      rule spaces to identify regions that support solitons. Beyond discovery, CARL agents can also learn
+      to control solitons by steering their movement direction. Finally, we demonstrate that CARL agents
+      can serve as real-time interfaces, enabling human users to guide solitons through maze environments
+      with simple directional commands.
     </p>
     <p class="lede">
-      The design choice that carries most of this is the <b>action cost</b>. It reflects the
-      principle that effective control of a self-organizing system should work alongside the
-      system's intrinsic dynamics rather than against them. In the mass-tracking task it turns
-      soliton discovery into a side effect of reward maximization: the cheapest way to hold a target
-      mass is to find a configuration that holds itself. In the steering task it produces the same
-      shape of behavior &mdash; a brief perturbation, then withdrawal.
+      CARL generalizes well to out-of-distribution conditions across variations in goals, action spaces,
+       and novel update rules. This suggests the policies capture transferable system dynamics rather 
+       than overfitting. As a result, trained policies can be reused and composed to solve tasks beyond
+        their original training objective. We demonstrate this in the maze experiment, where a 
+        human user modifies the agent’s goal (desired movement direction), while the policy handles the 
+        low-level control to achieve it in real time. This compositional reuse points toward functional 
+        integration, where distinct capabilities can be combined to solve increasingly complex tasks. 
+        Such integration suggests a path toward hierarchical control, where higher-level agents or processes 
+        set subgoals for lower-level controllers. We see CARL as a step toward artificial experimentalist 
+        frameworks, where agents not only learn how to autonomously act on complex systems, but also how to 
+        structure and combine those actions — deciding what to investigate through self-generated goals and
+         how to achieve it.
     </p>
     <p class="lede">
-      Because CARL's policies generalize rather than overfit, they can be reused and composed beyond
-      their training objective. The maze is the demonstration: a human sets subgoals while the
-      policy handles low-level control in real time. That points toward hierarchical control, where
-      a higher-level agent, not a person, sets those subgoals &mdash; and toward artificial
-      experimentalist agents that decide both <em>what</em> to investigate, through self-generated
-      goals, and <em>how</em> to achieve it.
+      A key limitation is that instantiating the framework requires domain expertise: the reward function, action space,
+      and observation design all encode knowledge about what makes a given system interesting. While the soliton creation 
+      task sidestepped the need to define solitons explicitly, it still reflects a designer’s intuition about Lenia.
+      Domain expertise is inherent to scientific inquiry, but when the goal is to uncover phenomena we cannot yet
+      characterize or anticipate, more open-ended approaches—such as intrinsic reward signals, adaptive goal sampling policies,
+      or automated environment and task design—could reduce this dependence and broaden the scope of discovery.
     </p>
     <p class="lede">
-      A key limitation is that instantiating the framework requires domain expertise: the reward
-      function, action space, and observation design all encode assumptions about what makes a
-      system interesting. The mass-tracking objective sidesteps having to define a soliton, but it
-      still reflects a designer's intuition about Lenia. And Lenia offers unusually favorable
-      conditions for closed-loop control &mdash; full observability, determinism, a simple action
-      space &mdash; none of which hold in the biomedical and bioengineering settings where guiding
-      self-organizing dynamics with minimal intervention matters most. Getting there will need more
-      open-ended goal discovery, and agents that cope with partial observability, stochasticity, and
-      multiscale dynamics.
+      Lenia offers favorable conditions for closed-loop control: full observability, determinism, and a
+      simple action space. The applications we ultimately want to reach offer none of these. In biomedical
+      and bioengineering systems, where guiding self-organizing dynamics with minimal intervention would be
+      most valuable, agents will have to cope with partial observability, stochasticity, and
+      high-dimensional, multiscale dynamics.
     </p>
   </section>
 
@@ -1335,11 +1327,11 @@
       agreement with Astonishing Labs and from the Templeton World Charity Foundation, Inc.
       (Grant ID: TWCF-2021-20606).
     </p>
-    <p class="meta" style="max-width:var(--col);margin-top:14px">
+    <p class="lede" style="margin-top:14px">
       The opinions expressed in this publication are those of the authors and do not necessarily
       reflect the views of the funding agencies.
     </p>
-    <p class="meta" style="max-width:var(--col);margin-top:10px">
+    <p class="lede" style="margin-top:10px">
       The authors used generative AI tools to assist with writing the manuscript, developing
       experiment code and this companion website. All outputs were reviewed by the authors, who
       take full responsibility for the content.
