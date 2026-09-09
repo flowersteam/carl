@@ -21,3 +21,6 @@ _ALife2026__Reinforcement_Learning_with_Cellular_Automata*/
 # Working copies
 *copy.html
 carl.html
+
+# Novel-rule episode sources; the site ships the encoded mp4s beside them.
+assets/videos/novel-rules/*.gif
